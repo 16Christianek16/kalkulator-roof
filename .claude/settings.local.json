@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($env:PGPASSWORD = \"postgres\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -c \"CREATE DATABASE kalkulator_roof;\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"postgres\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d kalkulator_roof -f \"C:\\\\Users\\\\marek\\\\CalkulatorRoofBackend\\\\src\\\\db\\\\init.sql\" 2>&1)",
+      "PowerShell($proc = Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -First 1; if \\($proc\\) { Stop-Process -Id $proc -Force; \"Proces $proc ukončen\" } else { \"Port 3001 je volný\" })",
+      "PowerShell(taskkill /PID 9816 /F)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3002/api/health\" -UseBasicParsing; $r.StatusCode; $r.Content } catch { $_.Exception.Message })",
+      "PowerShell($pid3002 = \\(Get-NetTCPConnection -LocalPort 3002 -ErrorAction SilentlyContinue\\).OwningProcess | Select-Object -First 1; if \\($pid3002\\) { taskkill /PID $pid3002 /F; \"Ukončen PID $pid3002\" } else { \"Port 3002 je volný\" })",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3002 -ErrorAction SilentlyContinue | ForEach-Object { \"PID: $\\($_.OwningProcess\\) State: $\\($_.State\\)\" })",
+      "PowerShell(Get-Process -Id 14360)",
+      "PowerShell(taskkill /PID 14360 /F 2>&1)",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue | ForEach-Object { taskkill /PID $_.Id /F }; Start-Sleep -Seconds 2; \"Hotovo\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3002 -ErrorAction SilentlyContinue)",
+      "PowerShell($env:PGPASSWORD = \"postgres\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d kalkulator_roof -c \"SELECT id, email, jmeno, role, predplatne FROM users;\")",
+      "PowerShell($env:PGPASSWORD = \"postgres\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d kalkulator_roof -c \"UPDATE users SET password_hash = '`$2a`$10`$mm5vIctKnIQ61if8630BnecI/nIsRB0WQCSwDhlG5XEykJ0ENt.1G' WHERE email = 'admin@kalkulator.cz';\")",
+      "PowerShell([Environment]::GetFolderPath\\(\"Desktop\"\\))",
+      "PowerShell(Copy-Item \"C:\\\\Users\\\\marek\\\\SpustKalkulator.bat\" \"C:\\\\Users\\\\marek\\\\Desktop\\\\SpustKalkulator.bat\")"
+    ]
+  }
+}
