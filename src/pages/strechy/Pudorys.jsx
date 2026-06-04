@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useRef, useState } from 'react'
-import { LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard, FileDown, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import PageHeader from '../../components/ui/PageHeader'
 import CalcCard from '../../components/ui/CalcCard'
 import InputField from '../../components/ui/InputField'
@@ -8,12 +9,18 @@ import ResultCard from '../../components/ui/ResultCard'
 import ZakazkaModal from '../../components/ui/ZakazkaModal'
 import { useRoofStore } from '../../store/roofStore'
 import { formatNum } from '../../utils/calculations'
+import { exportRoofPdf } from '../../utils/pdfExport'
+import { parseRoofCsv } from '../../utils/csvImport'
 
 const TYPY = [
-  { id: 'sedlova', label: 'Sedlová' },
-  { id: 'valbova', label: 'Valbová' },
-  { id: 'pultova', label: 'Pultová' },
-  { id: 'stanova', label: 'Stanová' },
+  { id: 'sedlova',     skupinaCs: 'Základní', skupinaEn: 'Basic' },
+  { id: 'valbova',     skupinaCs: 'Základní', skupinaEn: 'Basic' },
+  { id: 'pultova',     skupinaCs: 'Základní', skupinaEn: 'Basic' },
+  { id: 'stanova',     skupinaCs: 'Základní', skupinaEn: 'Basic' },
+  { id: 'mansardova',  skupinaCs: 'Složené',  skupinaEn: 'Compound' },
+  { id: 'pulvalbova',  skupinaCs: 'Složené',  skupinaEn: 'Compound' },
+  { id: 'asymetricka', skupinaCs: 'Složené',  skupinaEn: 'Compound' },
+  { id: 'pilova',      skupinaCs: 'Složené',  skupinaEn: 'Compound' },
 ]
 
 const SVG_W = 560
@@ -21,14 +28,14 @@ const SVG_H = 340
 const ML = 90, MT = 40, MR = 40, MB = 65
 
 function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi }) {
-  const s   = parseFloat(sirka)     || 8
-  const d   = parseFloat(delka)     || 12
+  const s   = parseFloat(sirka)      || 8
+  const d   = parseFloat(delka)      || 12
   const po  = parseFloat(presahOkap) || 0
   const ps  = parseFloat(presahStit) || 0
-  const roz = parseFloat(roztecKrokvi) / 1000 || 0.9  // m
+  const roz = parseFloat(roztecKrokvi) / 1000 || 0.9
 
-  const totalW = s + 2 * po   // y osa
-  const totalL = d + 2 * ps   // x osa
+  const totalW = s + 2 * po
+  const totalL = d + 2 * ps
 
   const availW = SVG_W - ML - MR
   const availH = SVG_H - MT - MB
@@ -46,16 +53,11 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
   const ry  = oy + (totalW / 2) * scale
   const cx  = ox + drawL / 2
 
-  const rx1 = typ === 'sedlova' ? bx  : typ === 'valbova' ? bx + (s / 2) * scale : cx
-  const rx2 = typ === 'sedlova' ? bx2 : typ === 'valbova' ? bx2 - (s / 2) * scale : cx
-
-  // Krokve — pozice podél délky
-  const nMezery  = Math.max(1, Math.round(d / roz))
-  const nKrokvi  = nMezery + 1
-  const skutRoz  = d / nMezery  // m
-  const showAll  = nKrokvi <= 60
-
-  const krokveX = Array.from({ length: nKrokvi }, (_, i) => bx + (i * skutRoz) * scale)
+  const nMezery = Math.max(1, Math.round(d / roz))
+  const nKrokvi = nMezery + 1
+  const skutRoz = d / nMezery
+  const showAll = nKrokvi <= 60
+  const krokveX = Array.from({ length: nKrokvi }, (_, i) => bx + i * skutRoz * scale)
 
   const dimColor = '#7a5030'
   const AS = 6
@@ -66,16 +68,54 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
     if (dir === 'd') return `M${x},${y} l${-AS/2},${-AS} l${AS},0Z`
   }
 
+  // Hřeben pozice dle typu
+  let rx1, rx2
+  switch (typ) {
+    case 'sedlova':     rx1 = bx;  rx2 = bx2; break
+    case 'asymetricka': rx1 = bx;  rx2 = bx2; break
+    case 'valbova':     rx1 = bx + (s / 2) * scale; rx2 = bx2 - (s / 2) * scale; break
+    case 'pulvalbova':  rx1 = bx + (s / 4) * scale; rx2 = bx2 - (s / 4) * scale; break
+    case 'stanova':     rx1 = cx; rx2 = cx; break
+    case 'mansardova':  rx1 = bx; rx2 = bx2; break
+    case 'pultova':     rx1 = null; rx2 = null; break
+    case 'pilova':      rx1 = null; rx2 = null; break
+    default:            rx1 = bx;  rx2 = bx2
+  }
+
+  // Nárožní linie
+  const hasNarozi = ['valbova', 'stanova', 'pulvalbova'].includes(typ)
+  const hasDiag   = ['sedlova', 'asymetricka', 'mansardova'].includes(typ)
+
   return (
     <svg width={SVG_W} height={SVG_H} style={{ display: 'block' }}>
-      {/* Plocha střechy */}
       <rect x={ox} y={oy} width={drawL} height={drawW}
         fill="#f5e0b0" stroke="#92400e" strokeWidth={2} rx={1} />
 
-      {/* Obrys budovy */}
       {(po > 0 || ps > 0) && (
         <rect x={bx} y={by} width={d * scale} height={s * scale}
           fill="none" stroke="#92400e" strokeWidth={1.2} strokeDasharray="6 3" />
+      )}
+
+      {/* Pilová střecha — zuby */}
+      {typ === 'pilova' && Array.from({ length: Math.max(2, Math.round(d / (s / 2))) }, (_, i) => {
+        const segW = (d / Math.max(2, Math.round(d / (s / 2)))) * scale
+        const x1 = bx + i * segW
+        const x2 = x1 + segW
+        return (
+          <g key={i}>
+            <line x1={x2} y1={by} x2={x1} y2={by2} stroke="#7c2d12" strokeWidth={1.5} />
+            <line x1={x2} y1={by2} x2={x2} y2={by} stroke="#92400e" strokeWidth={1} strokeOpacity={0.5} />
+          </g>
+        )
+      })}
+
+      {/* Mansardová — vnitřní linie */}
+      {typ === 'mansardova' && (
+        <>
+          <rect x={bx + (s * 0.3) * scale} y={by + (s * 0.3) * scale}
+            width={(d - s * 0.6) * scale} height={(s * 0.4) * scale}
+            fill="#f0c880" stroke="#7c2d12" strokeWidth={1.5} />
+        </>
       )}
 
       {/* Krokve */}
@@ -85,13 +125,12 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
           strokeWidth={i === 0 || i === nKrokvi - 1 ? 1.8 : 1}
           strokeOpacity={0.8} />
       )) : (
-        // Příliš mnoho krokví — zobraz jen první, poslední a několik prostředních
         <>
           {[0, 1, 2, Math.floor(nKrokvi/2)-1, Math.floor(nKrokvi/2), Math.floor(nKrokvi/2)+1, nKrokvi-3, nKrokvi-2, nKrokvi-1]
             .filter((v, i, a) => v >= 0 && v < nKrokvi && a.indexOf(v) === i)
             .map(i => (
-              <line key={i} x1={bx + (i * skutRoz) * scale} y1={oy}
-                x2={bx + (i * skutRoz) * scale} y2={oy + drawW}
+              <line key={i} x1={bx + i * skutRoz * scale} y1={oy}
+                x2={bx + i * skutRoz * scale} y2={oy + drawW}
                 stroke="#b45309" strokeWidth={1} strokeOpacity={0.6} />
             ))}
           <text x={cx} y={ry - 8} textAnchor="middle" fontSize={9} fill="#b45309" fillOpacity={0.8}>
@@ -101,13 +140,16 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
       )}
 
       {/* Hřeben */}
-      {(typ === 'sedlova' || typ === 'valbova') && rx1 < rx2 && (
+      {rx1 !== null && rx2 !== null && rx1 < rx2 && (
         <line x1={rx1} y1={ry} x2={rx2} y2={ry}
           stroke="#7c2d12" strokeWidth={3} strokeLinecap="round" />
       )}
+      {typ === 'stanova' && (
+        <circle cx={cx} cy={ry} r={4} fill="#7c2d12" />
+      )}
 
       {/* Nárožní linie */}
-      {(typ === 'valbova' || typ === 'stanova') && (
+      {hasNarozi && (
         <>
           <line x1={ox}       y1={oy}       x2={rx1} y2={ry} stroke="#92400e" strokeWidth={1.5} />
           <line x1={ox}       y1={oy+drawW} x2={rx1} y2={ry} stroke="#92400e" strokeWidth={1.5} />
@@ -116,18 +158,22 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
         </>
       )}
 
-      {/* Sedlová — diagonální linie */}
-      {typ === 'sedlova' && (
+      {hasDiag && (
         <>
-          <line x1={ox} y1={oy}       x2={rx1} y2={ry} stroke="#92400e" strokeWidth={1} strokeOpacity={0.4} />
-          <line x1={ox} y1={oy+drawW} x2={rx1} y2={ry} stroke="#92400e" strokeWidth={1} strokeOpacity={0.4} />
-          <line x1={ox+drawL} y1={oy}       x2={rx2} y2={ry} stroke="#92400e" strokeWidth={1} strokeOpacity={0.4} />
-          <line x1={ox+drawL} y1={oy+drawW} x2={rx2} y2={ry} stroke="#92400e" strokeWidth={1} strokeOpacity={0.4} />
+          <line x1={ox} y1={oy}       x2={rx1 ?? cx} y2={ry} stroke="#92400e" strokeWidth={1} strokeOpacity={0.4} />
+          <line x1={ox} y1={oy+drawW} x2={rx1 ?? cx} y2={ry} stroke="#92400e" strokeWidth={1} strokeOpacity={0.4} />
+          <line x1={ox+drawL} y1={oy}       x2={rx2 ?? cx} y2={ry} stroke="#92400e" strokeWidth={1} strokeOpacity={0.4} />
+          <line x1={ox+drawL} y1={oy+drawW} x2={rx2 ?? cx} y2={ry} stroke="#92400e" strokeWidth={1} strokeOpacity={0.4} />
         </>
       )}
 
-      {/* KÓTY */}
-      {/* Délka — dole */}
+      {/* Asymetrická — jiný sklon */}
+      {typ === 'asymetricka' && (
+        <line x1={rx1} y1={ry} x2={rx2} y2={ry + drawW * 0.15}
+          stroke="#7c2d12" strokeWidth={2} strokeDasharray="6 3" />
+      )}
+
+      {/* Kóty — délka dole */}
       {(() => {
         const y = oy + drawW + 28
         return <g>
@@ -142,7 +188,7 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
         </g>
       })()}
 
-      {/* Šířka — vlevo */}
+      {/* Kóty — šířka vlevo */}
       {(() => {
         const x = ox - 28
         return <g>
@@ -158,11 +204,9 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
         </g>
       })()}
 
-      {/* Rozteč krokví — popis */}
       {showAll && nKrokvi >= 2 && (() => {
-        const i = 0
-        const x1 = bx + i * skutRoz * scale
-        const x2 = bx + (i+1) * skutRoz * scale
+        const x1 = bx
+        const x2 = bx + skutRoz * scale
         const y  = oy - 12
         return <g>
           <line x1={x1} y1={y} x2={x2} y2={y} stroke="#b45309" strokeWidth={1} />
@@ -173,15 +217,12 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
           </text>
         </g>
       })()}
-
-      <text x={SVG_W/2} y={SVG_H-6} textAnchor="middle" fontSize={10} fill={dimColor} fillOpacity={0.5}>
-        {TYPY.find(t=>t.id===typ)?.label} střecha — půdorys
-      </text>
     </svg>
   )
 }
 
 export default function Pudorys() {
+  const { t } = useTranslation()
   const {
     typ, setTyp, sirka, setSirka, delka, setDelka,
     presahOkap, setPresahOkap, presahStit, setPresahStit,
@@ -191,15 +232,17 @@ export default function Pudorys() {
   } = useRoofStore()
 
   const [showModal, setShowModal] = useState(false)
+  const [csvError, setCsvError] = useState('')
   const isMounted = useRef(false)
   const lastShown = useRef(null)
+  const csvRef = useRef()
 
   useEffect(() => {
     if (!isMounted.current) { isMounted.current = true; return }
     const key = JSON.stringify({ sirka, delka, sklon, presahOkap, presahStit, roztecKrokvi })
     if (key === lastShown.current) return
-    const t = setTimeout(() => { lastShown.current = key; setShowModal(true) }, 1500)
-    return () => clearTimeout(t)
+    const t2 = setTimeout(() => { lastShown.current = key; setShowModal(true) }, 1500)
+    return () => clearTimeout(t2)
   }, [sirka, delka, sklon, presahOkap, presahStit, roztecKrokvi])
 
   const res = useMemo(() => {
@@ -207,58 +250,80 @@ export default function Pudorys() {
     const d  = parseFloat(delka)      || 0
     const po = parseFloat(presahOkap) || 0
     const ps = parseFloat(presahStit) || 0
-    const roz = parseFloat(roztecKrokvi) / 1000 || 0.9
-    const plocha = getPlocha()
-    const n = getPocetKrokvi()
+    const plocha  = getPlocha()
+    const n       = getPocetKrokvi()
     const skutRoz = getSkutecnaRozted()
     const plocha2D = (s + 2*po) * (d + 2*ps)
-    const obvod = 2 * ((s + 2*po) + (d + 2*ps))
+    const obvod    = 2 * ((s + 2*po) + (d + 2*ps))
     const varovani = roztecKrokvi < 600 || roztecKrokvi > 1200
-    return {
-      plocha: formatNum(plocha),
-      plocha2D: formatNum(plocha2D),
-      obvod: formatNum(obvod),
-      n,
-      skutRoz: Math.round(skutRoz),
-      varovani,
-    }
+    return { plocha: formatNum(plocha), plocha2D: formatNum(plocha2D), obvod: formatNum(obvod), n, skutRoz: Math.round(skutRoz), varovani }
   }, [sirka, delka, presahOkap, presahStit, roztecKrokvi])
+
+  const handleCsvImport = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = parseRoofCsv(ev.target.result)
+        if (data.sirka)      setSirka(data.sirka)
+        if (data.delka)      setDelka(data.delka)
+        if (data.sklon)      setSklon(data.sklon)
+        if (data.presahOkap) setPresahOkap(data.presahOkap)
+        if (data.presahStit) setPresahStit(data.presahStit)
+        if (data.roztecKrokvi) setRoztecKrokvi(data.roztecKrokvi)
+        setCsvError('')
+      } catch (err) {
+        setCsvError('Chyba v CSV souboru: ' + err.message)
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  const handleExportPdf = () => {
+    exportRoofPdf({ typ, sirka, delka, sklon, presahOkap, presahStit, roztecKrokvi, res })
+  }
+
+  // Skupiny typů střech
+  const skupiny = [...new Set(TYPY.map(t => t.skupinaCs))]
 
   return (
     <div>
       <PageHeader
-        title="Půdorys střechy"
+        title={t('nav.pudorys')}
         description="Pohled na střechu shora — tvar, rozměry, přesahy a rozmístění krokví"
         icon={LayoutDashboard}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <CalcCard title="Parametry střechy">
+        <CalcCard title={t('roof.typLabel')}>
           <div className="flex flex-col gap-4">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wide block mb-2" style={{ color: '#7a5030' }}>
-                Typ střechy
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {TYPY.map(t => (
-                  <button key={t.id} onClick={() => setTyp(t.id)}
-                    className="py-2 px-3 rounded-lg text-sm font-medium transition-colors border"
-                    style={typ === t.id
-                      ? { background: '#3b2008', color: '#fff', borderColor: '#3b2008' }
-                      : { background: '#fffaf4', color: '#7a5030', borderColor: '#d4b896' }}>
-                    {t.label}
-                  </button>
-                ))}
+
+            {/* Typ střechy — skupiny */}
+            {skupiny.map(sk => (
+              <div key={sk}>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#94a3b8' }}>{sk}</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {TYPY.filter(t => t.skupinaCs === sk).map(rt => (
+                    <button key={rt.id} onClick={() => setTyp(rt.id)}
+                      className="py-2 px-2 rounded-lg text-xs font-medium transition-colors border text-left"
+                      style={typ === rt.id
+                        ? { background: '#3b2008', color: '#fff', borderColor: '#3b2008' }
+                        : { background: '#fffaf4', color: '#7a5030', borderColor: '#d4b896' }}>
+                      {t(`roof.${rt.id}`)}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            ))}
 
-            <InputField label="Šířka budovy" value={sirka} onChange={setSirka} unit="m" min={2} step={0.5} hint="Kratší rozměr" />
-            <InputField label="Délka budovy" value={delka} onChange={setDelka} unit="m" min={2} step={0.5} hint="Delší rozměr" />
-            <InputField label="Přesah okapní" value={presahOkap} onChange={setPresahOkap} unit="m" min={0} step={0.1} hint="Přesah ve směru šířky" />
-            <InputField label="Přesah štítový" value={presahStit} onChange={setPresahStit} unit="m" min={0} step={0.1} hint="Přesah ve směru délky" />
-
+            <InputField label={t('roof.sirka')} value={sirka} onChange={setSirka} unit="m" min={2} step={0.5} hint="Kratší rozměr" />
+            <InputField label={t('roof.delka')} value={delka} onChange={setDelka} unit="m" min={2} step={0.5} hint="Delší rozměr" />
+            <InputField label={t('roof.presahOkap')} value={presahOkap} onChange={setPresahOkap} unit="m" min={0} step={0.1} />
+            <InputField label={t('roof.presahStit')} value={presahStit} onChange={setPresahStit} unit="m" min={0} step={0.1} />
             <div>
-              <InputField label="Rozteč krokví" value={roztecKrokvi} onChange={setRoztecKrokvi} unit="mm" min={400} max={1500} step={50}
+              <InputField label={t('roof.roztecKrokvi')} value={roztecKrokvi} onChange={setRoztecKrokvi} unit="mm" min={400} max={1500} step={50}
                 hint="Doporučeno 700–1000 mm (ČSN 73 1702)" />
               {res.varovani && (
                 <p className="mt-1 text-xs font-medium" style={{ color: '#c05020' }}>
@@ -266,6 +331,28 @@ export default function Pudorys() {
                 </p>
               )}
             </div>
+
+            {/* CSV Import / PDF Export */}
+            <div className="flex gap-2 pt-1">
+              <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={handleCsvImport} />
+              <button onClick={() => csvRef.current.click()}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors flex-1"
+                style={{ borderColor: '#d4b896', color: '#7a5030', background: '#fffaf4' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f5e0b0'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fffaf4'}>
+                <Upload size={13} />
+                {t('common.importCsv')}
+              </button>
+              <button onClick={handleExportPdf}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors flex-1"
+                style={{ borderColor: '#d4b896', color: '#7a5030', background: '#fffaf4' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f5e0b0'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fffaf4'}>
+                <FileDown size={13} />
+                {t('common.exportPdf')}
+              </button>
+            </div>
+            {csvError && <p className="text-xs" style={{ color: '#dc2626' }}>{csvError}</p>}
           </div>
         </CalcCard>
 
@@ -283,11 +370,11 @@ export default function Pudorys() {
       <div className="mt-5">
         <CalcCard title="Výsledky a přehled krokví">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <ResultCard label="Rozvinutá plocha střechy" value={res.plocha} unit="m²" highlight />
-            <ResultCard label="Půdorysná plocha střechy" value={res.plocha2D} unit="m²" />
-            <ResultCard label="Obvod střechy" value={res.obvod} unit="m" />
-            <ResultCard label="Počet krokví" value={res.n} unit="ks" highlight />
-            <ResultCard label="Skutečná rozteč" value={res.skutRoz} unit="mm" />
+            <ResultCard label={t('roof.plocha')} value={res.plocha} unit="m²" highlight />
+            <ResultCard label={t('roof.plocha2D')} value={res.plocha2D} unit="m²" />
+            <ResultCard label={t('roof.obvod')} value={res.obvod} unit="m" />
+            <ResultCard label={t('roof.pocetKrokvi')} value={res.n} unit="ks" highlight />
+            <ResultCard label={t('roof.skutecnaRozted')} value={res.skutRoz} unit="mm" />
           </div>
           <p className="mt-3 text-xs" style={{ color: '#a07850' }}>
             Parametry jsou sdíleny se všemi výpočetními sekcemi. Změna zde se projeví v{' '}

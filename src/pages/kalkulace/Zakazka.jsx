@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { BarChart2, Trash2, ChevronDown, ChevronUp, BookOpen, ArrowRight, FileText, Receipt } from 'lucide-react'
+import { BarChart2, Trash2, ChevronDown, ChevronUp, BookOpen, ArrowRight, FileText, Receipt, FileDown } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import PageHeader from '../../components/ui/PageHeader'
 import ZakazkaModal from '../../components/ui/ZakazkaModal'
 import { useAppStore } from '../../store/appStore'
 import { useRoofStore } from '../../store/roofStore'
 import { formatNum } from '../../utils/calculations'
+import { exportZakazkaPdf } from '../../utils/pdfExport'
 
 function InfoRow({ label, value, unit }) {
   return (
@@ -132,6 +133,20 @@ function ZakazkaCard({ zakazka, onDelete, onDoklad }) {
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
             style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
             <Receipt size={14} /> Vytvořit fakturu
+          </button>
+          <button onClick={() => exportZakazkaPdf({
+              name: zakazka.nazev,
+              customer: zakazka.zakaznik,
+              krytina: zakazka.krytinaLabel,
+              plocha: zakazka.computed ? formatNum(zakazka.computed.plocha) : '',
+              pocetKrokvi: zakazka.computed?.pocetKrokvi,
+              delkaKrokvi: zakazka.computed ? formatNum(zakazka.computed.delkaKrokve) : '',
+              pocetLati: zakazka.computed?.pocetLatiCelkem,
+              pocetTasek: zakazka.computed?.pocetTasek?.toLocaleString('cs-CZ'),
+            })}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-colors"
+            style={{ background: '#fff', color: '#475569', border: '1px solid #e2e8f0' }}>
+            <FileDown size={14} /> Export PDF
           </button>
         </div>
       )}
