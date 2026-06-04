@@ -6,17 +6,19 @@ export const useRoofStore = create(
   persist(
     (set, get) => ({
       // --- Základní parametry střechy ---
-      typ:          'sedlova',  // sedlova | valbova | pultova | stanova
-      sirka:        8,          // m — šířka budovy
-      delka:        12,         // m — délka budovy
-      presahOkap:   0.6,        // m — okapní přesah (ve směru šířky)
-      presahStit:   0.4,        // m — štítový přesah (ve směru délky)
-      sklon:        35,         // ° — sklon střechy
-      vyskaZdi:     3,          // m — výška zdiva
-      roztecKrokvi: 900,        // mm — rozteč krokví
+      typ:          'sedlova',
+      sirka:        8,
+      delka:        12,
+      presahOkap:   0.6,
+      presahStit:   0.4,
+      sklon:        35,
+      vyskaZdi:     3,
+      roztecKrokvi: 900,
+      krytina:      'bobrovka',
 
       // --- Settery ---
       setTyp:          (v) => set({ typ: v }),
+      setKrytina:      (v) => set({ krytina: v }),
       setSirka:        (v) => set({ sirka: parseFloat(v) || 8 }),
       setDelka:        (v) => set({ delka: parseFloat(v) || 12 }),
       setPresahOkap:   (v) => set({ presahOkap: parseFloat(v) || 0 }),

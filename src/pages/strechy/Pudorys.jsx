@@ -7,7 +7,9 @@ import CalcCard from '../../components/ui/CalcCard'
 import InputField from '../../components/ui/InputField'
 import ResultCard from '../../components/ui/ResultCard'
 import ZakazkaModal from '../../components/ui/ZakazkaModal'
+import Preview3DErrorBoundary from '../../components/ui/Preview3DErrorBoundary'
 import { useRoofStore } from '../../store/roofStore'
+import { krytinyOptions } from '../../data/krytiny'
 import { formatNum } from '../../utils/calculations'
 import { exportRoofPdf } from '../../utils/pdfExport'
 import { parseRoofCsv } from '../../utils/csvImport'
@@ -230,6 +232,7 @@ export default function Pudorys() {
     presahOkap, setPresahOkap, presahStit, setPresahStit,
     sklon, setSklon, vyskaZdi,
     roztecKrokvi, setRoztecKrokvi,
+    krytina, setKrytina,
     getPlocha, getPocetKrokvi, getSkutecnaRozted,
   } = useRoofStore()
 
@@ -381,16 +384,31 @@ export default function Pudorys() {
               </div>
             </div>
           }>
+            {view3d && (
+              <div className="mb-3">
+                <select value={krytina} onChange={e => setKrytina(e.target.value)}
+                  className="select-field text-xs" style={{ maxWidth: 280 }}>
+                  {krytinyOptions().map(({ kategorie, items }) => (
+                    <optgroup key={kategorie} label={kategorie}>
+                      {items.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+            )}
             {view3d ? (
-              <Suspense fallback={
-                <div className="flex items-center justify-center rounded-xl" style={{ height: 420, background: '#f1f5f9' }}>
-                  <div className="text-sm" style={{ color: '#94a3b8' }}>Načítám 3D náhled…</div>
-                </div>
-              }>
-                <RoofPreview3D
-                  typ={typ} sirka={sirka} delka={delka} sklon={sklon}
-                  presahOkap={presahOkap} presahStit={presahStit} vyskaZdi={vyskaZdi} />
-              </Suspense>
+              <Preview3DErrorBoundary>
+                <Suspense fallback={
+                  <div className="flex items-center justify-center rounded-xl" style={{ height: 420, background: '#f1f5f9' }}>
+                    <div className="text-sm" style={{ color: '#94a3b8' }}>Načítám 3D náhled…</div>
+                  </div>
+                }>
+                  <RoofPreview3D
+                    typ={typ} sirka={sirka} delka={delka} sklon={sklon}
+                    presahOkap={presahOkap} presahStit={presahStit} vyskaZdi={vyskaZdi}
+                    krytina={krytina} roztecKrokvi={roztecKrokvi} />
+                </Suspense>
+              </Preview3DErrorBoundary>
             ) : (
               <div className="overflow-x-auto">
                 <PudorysSVG typ={typ} sirka={sirka} delka={delka}

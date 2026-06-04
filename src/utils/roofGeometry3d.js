@@ -1,356 +1,218 @@
 import * as THREE from 'three'
+import { buildKrytinaMateriál } from './roofTextures'
 
-// --- helpers ---
-function quad(A, B, C, D) {
-  return [...A, ...B, ...C, ...A, ...C, ...D]
-}
-function tri(A, B, C) {
-  return [...A, ...B, ...C]
-}
-
-function createRoofTexture(color = '#b04520') {
-  const size = 512
-  const canvas = document.createElement('canvas')
-  canvas.width = size; canvas.height = size
-  const ctx = canvas.getContext('2d')
-
-  // Base color
-  ctx.fillStyle = color
-  ctx.fillRect(0, 0, size, size)
-
-  // Tile pattern (brick offset)
-  const tw = 72, th = 30
-  for (let row = 0; row <= size / th + 1; row++) {
-    const offset = (row % 2) * (tw / 2)
-    for (let col = -1; col <= size / tw + 1; col++) {
-      const x = col * tw + offset
-      const y = row * th
-      // Shadow (bottom + right)
-      ctx.fillStyle = 'rgba(0,0,0,0.28)'
-      ctx.fillRect(x, y + th - 2, tw, 2)
-      ctx.fillRect(x + tw - 1, y, 1, th)
-      // Highlight (top of tile)
-      ctx.fillStyle = 'rgba(255,255,255,0.08)'
-      ctx.fillRect(x + 2, y + 2, tw - 4, th * 0.40)
-      // Subtle color variation per tile
-      ctx.fillStyle = `rgba(0,0,0,${(Math.sin(col * 3.7 + row * 2.1) * 0.5 + 0.5) * 0.07})`
-      ctx.fillRect(x + 1, y + 1, tw - 2, th - 2)
-    }
-  }
-
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
-  return tex
-}
-
-function createWallTexture() {
-  const size = 256
-  const canvas = document.createElement('canvas')
-  canvas.width = size; canvas.height = size
-  const ctx = canvas.getContext('2d')
-  ctx.fillStyle = '#f0e8d0'
-  ctx.fillRect(0, 0, size, size)
-  // Subtle plaster texture
-  for (let i = 0; i < 2000; i++) {
-    const x = Math.random() * size
-    const y = Math.random() * size
-    const a = Math.random() * 0.04
-    ctx.fillStyle = `rgba(0,0,0,${a})`
-    ctx.fillRect(x, y, 2, 2)
-  }
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
-  tex.repeat.set(3, 2)
-  return tex
-}
+// ─── Geometry helpers ────────────────────────────────────────────────────────
+function quad(A, B, C, D) { return [...A, ...B, ...C, ...A, ...C, ...D] }
+function tri(A, B, C)     { return [...A, ...B, ...C] }
 
 function meshFrom(positions, material) {
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(positions), 3))
   geo.computeVertexNormals()
-  const mesh = new THREE.Mesh(geo, material)
-  mesh.castShadow = true
-  mesh.receiveShadow = true
-  return mesh
+  const m = new THREE.Mesh(geo, material)
+  m.castShadow = true
+  m.receiveShadow = true
+  return m
 }
 
-// Color mapping by roof type label
-const KRYTINA_COLORS = {
-  tasky:    '#b04520',
-  pálená:   '#b04520',
-  betonová: '#6b7280',
-  bridlice: '#4b5563',
-  plech:    '#708090',
-  bitumen:  '#374151',
-  default:  '#c05020',
+// ─── Wall texture ─────────────────────────────────────────────────────────────
+function wallMaterial() {
+  const SZ = 512
+  const c = document.createElement('canvas'); c.width = SZ; c.height = SZ
+  const x = c.getContext('2d')
+  x.fillStyle = '#f2ead8'; x.fillRect(0, 0, SZ, SZ)
+  for (let i = 0; i < 1500; i++) {
+    x.fillStyle = `rgba(0,0,0,${Math.random() * 0.03})`
+    x.fillRect(Math.random() * SZ, Math.random() * SZ, 3, 2)
+  }
+  const t = new THREE.CanvasTexture(c)
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  t.repeat.set(3, 2)
+  return new THREE.MeshStandardMaterial({ map: t, roughness: 0.9, side: THREE.DoubleSide })
 }
 
-export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit, wallHeight = 2.7, krytinaColor = '#b04520') {
+// ─── Apply texture repeat ─────────────────────────────────────────────────────
+// baseRepeat = opakování pro standardní střechu 10m délka / 5m svah
+// Škálujeme lineárně podle skutečných rozměrů střechy
+function applyRepeat(mat, slopeLen, ridgeLen) {
+  const { baseRepeatX, baseRepeatY } = mat.userData
+  if (!baseRepeatX) return
+  const rX = baseRepeatX * (ridgeLen / 10.0)
+  const rY = baseRepeatY * (slopeLen / 5.0)
+  if (mat.map)       { mat.map.repeat.set(rX, rY);       mat.map.needsUpdate = true }
+  if (mat.normalMap) { mat.normalMap.repeat.set(rX, rY); mat.normalMap.needsUpdate = true }
+}
+
+// ─── Main roof builder ────────────────────────────────────────────────────────
+export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit, wallHeight = 2.7, krytina = 'bobrovka') {
   const s  = Math.max(parseFloat(sirka)      || 8,   2)
   const d  = Math.max(parseFloat(delka)      || 12,  2)
   const po = Math.max(parseFloat(presahOkap) || 0.3, 0)
   const ps = Math.max(parseFloat(presahStit) || 0.3, 0)
   const wH = Math.max(parseFloat(wallHeight) || 2.7, 1)
-  const slRad = ((parseFloat(sklon) || 35) * Math.PI) / 180
+  const slRad = Math.max(5, Math.min(parseFloat(sklon) || 35, 75)) * Math.PI / 180
 
-  const h  = (s / 2) * Math.tan(slRad)   // ridge height
-  const hw = s / 2 + po                   // half-width (z) with eave overhang
-  const hd = d / 2 + ps                   // half-depth (x) with gable overhang
+  const h  = (s / 2) * Math.tan(slRad)
+  const hw = s / 2 + po
+  const hd = d / 2 + ps
 
-  // Eave corners (y = wallH)
-  const BL = [-(hd), wH, -(hw)]
-  const FL = [  hd,  wH, -(hw)]
-  const FR = [  hd,  wH,   hw]
-  const BR = [-(hd), wH,   hw]
+  const BL = [-hd, wH, -hw]
+  const FL = [ hd, wH, -hw]
+  const FR = [ hd, wH,  hw]
+  const BR = [-hd, wH,  hw]
 
-  const roofTex = createRoofTexture(krytinaColor)
-  // Scale texture: ~1 tile per 0.4m along ridge, 1 tile per 0.35m up slope
-  const slopeLen = Math.sqrt(hw * hw + h * h)
-  roofTex.repeat.set((hd * 2) / 0.4, slopeLen / 0.35)
+  const slopeLen  = Math.sqrt(hw * hw + h * h)   // délka svahu
+  const ridgeLen  = hd * 2                        // délka hřebene
 
-  const roofMat = new THREE.MeshStandardMaterial({
-    map: roofTex, roughness: 0.88, metalness: 0.02,
-  })
-  const darkMat = new THREE.MeshStandardMaterial({ color: 0x2d1a0e, roughness: 1 })
+  const mat  = buildKrytinaMateriál(krytina)
+  applyRepeat(mat, slopeLen, ridgeLen)
 
+  const wMat = wallMaterial()
   const group = new THREE.Group()
   let pos = []
 
   switch (typ) {
-    case 'sedlova':
-    case 'asymetricka': {
-      const RB = [-(hd), wH + h, 0]
-      const RF = [  hd,  wH + h, 0]
+    case 'sedlova': {
+      const RB = [-hd, wH + h, 0], RF = [hd, wH + h, 0]
       pos = [
-        ...quad(BL, FL, RF, RB),
-        ...quad(BR, RB, RF, FR),
-        ...tri(BL, RB, BR),
-        ...tri(FL, FR, RF),
+        ...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR),
+        ...tri(BL, RB, BR),       ...tri(FL, FR, RF),
       ]
-      if (typ === 'asymetricka') {
-        // Shift ridge off-center by 20% of width
-        const shift = hw * 0.2
-        const aRB = [-(hd), wH + h * 0.9,  shift]
-        const aRF = [  hd,  wH + h * 0.9,  shift]
-        pos = [
-          ...quad(BL, FL, aRF, aRB),
-          ...quad(BR, aRB, aRF, FR),
-          ...tri(BL, aRB, BR),
-          ...tri(FL, FR, aRF),
-        ]
-      }
+      break
+    }
+
+    case 'asymetricka': {
+      const shift = hw * 0.25, rH = h * 0.88
+      const RB = [-hd, wH + rH, shift], RF = [hd, wH + rH, shift]
+      pos = [
+        ...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR),
+        ...tri(BL, RB, BR),       ...tri(FL, FR, RF),
+      ]
       break
     }
 
     case 'valbova': {
       const rx = Math.max(0, hd - hw)
-      if (rx < 0.01) {
-        // Pyramid degenerate
+      if (rx < 0.05) {
         const apex = [0, wH + h, 0]
-        pos = [
-          ...tri(BL, FL, apex),
-          ...tri(FL, FR, apex),
-          ...tri(FR, BR, apex),
-          ...tri(BR, BL, apex),
-        ]
+        pos = [...tri(BL, FL, apex), ...tri(FL, FR, apex), ...tri(FR, BR, apex), ...tri(BR, BL, apex)]
       } else {
-        const RB = [-rx, wH + h, 0]
-        const RF = [ rx, wH + h, 0]
-        pos = [
-          ...quad(BL, FL, RF, RB),
-          ...quad(BR, RB, RF, FR),
-          ...tri(BL, RB, BR),
-          ...tri(FL, FR, RF),
-        ]
+        const RB = [-rx, wH + h, 0], RF = [rx, wH + h, 0]
+        pos = [...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR), ...tri(BL, RB, BR), ...tri(FL, FR, RF)]
       }
       break
     }
 
     case 'stanova': {
       const apex = [0, wH + h, 0]
-      pos = [
-        ...tri(BL, FL, apex),
-        ...tri(FL, FR, apex),
-        ...tri(FR, BR, apex),
-        ...tri(BR, BL, apex),
-      ]
+      pos = [...tri(BL, FL, apex), ...tri(FL, FR, apex), ...tri(FR, BR, apex), ...tri(BR, BL, apex)]
       break
     }
 
     case 'pultova': {
-      const hFull = s * Math.tan(slRad)
-      // Slope from low (z = +hw) to high (z = -hw)
-      const Lo1 = [-(hd), wH,         hw]
-      const Lo2 = [  hd,  wH,         hw]
-      const Hi1 = [  hd,  wH + hFull, -hw]
-      const Hi2 = [-(hd), wH + hFull, -hw]
-      // Side triangles
-      const Mid1 = [-(hd), wH, -hw]
-      const Mid2 = [  hd,  wH, -hw]
+      const hF = s * Math.tan(slRad)
+      const Lo1 = [-hd, wH, hw], Lo2 = [hd, wH, hw]
+      const Hi1 = [hd, wH + hF, -hw], Hi2 = [-hd, wH + hF, -hw]
       pos = [
         ...quad(Lo1, Lo2, Hi1, Hi2),
-        ...tri(Lo1, Hi2, Mid1),
-        ...tri(Lo2, Mid2, Hi1),
+        ...tri(Lo1, Hi2, [-hd, wH, -hw]),
+        ...tri(Lo2, [hd, wH, -hw], Hi1),
       ]
       break
     }
 
     case 'mansardova': {
-      // Lower steep slope (~60°) + upper shallow slope
-      const lSlope = Math.min(slRad * 1.8, Math.PI * 0.42)
-      const lFrac  = 0.38  // how much of hw the lower slope covers
-      const lHw    = hw * lFrac
-      const lH     = lHw * Math.tan(lSlope)
+      const lSlope = Math.min(slRad * 1.9, Math.PI * 0.43)
+      const lFrac = 0.40, lHw = hw * lFrac, lH = lHw * Math.tan(lSlope)
+      const uHw = hw - lHw, uH = uHw * Math.tan(slRad)
+      const iY = wH + lH, iZn = -(hw - lHw), iZp = hw - lHw
 
-      const uHw = hw - lHw  // upper width from intermediate to center
-      const uH  = uHw * Math.tan(slRad)
+      const IBL = [-hd, iY, iZn], IFL = [hd, iY, iZn]
+      const IFR = [hd, iY, iZp], IBR = [-hd, iY, iZp]
+      const RB = [-hd, iY + uH, 0], RF = [hd, iY + uH, 0]
 
-      // Intermediate eave (top of lower slope)
-      const iY = wH + lH
-      const iZ = -(hw - lHw)   // = -(hw * (1 - lFrac))
-      const IBL = [-(hd), iY,  iZ]
-      const IFL = [  hd,  iY,  iZ]
-      const IFR = [  hd,  iY, -iZ]
-      const IBR = [-(hd), iY, -iZ]
+      // Lower slopes (steeper) — same material, shorter slope
+      const lMat = buildKrytinaMateriál(krytina)
+      applyRepeat(lMat, lHw / Math.cos(lSlope), ridgeLen)
+      group.add(meshFrom([
+        ...quad(BL, FL, IFL, IBL), ...quad(BR, IBR, IFR, FR),
+        ...quad(BL, IBL, IBR, BR), ...quad(FL, FR, IFR, IFL),
+      ], lMat))
 
-      // Ridge
-      const rY = iY + uH
-      const RB  = [-(hd), rY, 0]
-      const RF  = [  hd,  rY, 0]
-
-      // Lower slopes (4 sides, steep)
-      const lMat = new THREE.MeshStandardMaterial({
-        map: createRoofTexture('#8b3a1a'), roughness: 0.9,
-      })
-      lMat.map.repeat.set((hd * 2) / 0.4, (lHw / 0.35))
-
-      const lPos = [
-        ...quad(BL, FL, IFL, IBL),   // left lower
-        ...quad(BR, IBR, IFR, FR),   // right lower
-        ...quad(BL, IBL, IBR, BR),   // back lower
-        ...quad(FL, FR, IFR, IFL),   // front lower
-      ]
-      group.add(meshFrom(lPos, lMat))
-
+      // Upper slopes (shallower)
+      applyRepeat(mat, uHw / Math.cos(slRad), ridgeLen)
       pos = [
-        ...quad(IBL, IFL, RF, RB),   // left upper
-        ...quad(IBR, RB, RF, IFR),   // right upper
-        ...tri(IBL, RB, IBR),         // back upper gable
-        ...tri(IFL, IFR, RF),         // front upper gable
+        ...quad(IBL, IFL, RF, RB), ...quad(IBR, RB, RF, IFR),
+        ...tri(IBL, RB, IBR),       ...tri(IFL, IFR, RF),
       ]
       break
     }
 
     case 'pulvalbova': {
-      // Gable roof with small hip at each end (krüppelwalm)
-      const hipDepth = Math.min(hd * 0.22, hw * 0.4)  // how far in the hip extends
-      const hipH = hipDepth * Math.tan(slRad)
-
-      const RB = [-(hd), wH + h, 0]
-      const RF = [  hd,  wH + h, 0]
-
-      // Hip eave intermediate points
-      const HBL = [-(hd - hipDepth), wH + hipH, -(hw)]
-      const HBR = [-(hd - hipDepth), wH + hipH,   hw ]
-      const HFL = [  hd - hipDepth,  wH + hipH, -(hw)]
-      const HFR = [  hd - hipDepth,  wH + hipH,   hw ]
+      const RB = [-hd, wH + h, 0], RF = [hd, wH + h, 0]
+      const kneeH = h  * 0.48
+      const kneeZ = hw * (1 - 0.48)
+      const KBL = [-hd, wH + kneeH, -kneeZ], KBR = [-hd, wH + kneeH,  kneeZ]
+      const KFL = [ hd, wH + kneeH, -kneeZ], KFR = [ hd, wH + kneeH,  kneeZ]
 
       pos = [
-        // Main slopes (from intermediate hip to ridge)
-        ...quad(HBL, HFL, RF, RB),
-        ...quad(HBR, RB, RF, HFR),
-        // Hip sections at gable ends (back)
-        ...tri(BL, HBL, RB),
-        ...tri(BL, RB, BR),   // filler below
-        ...tri(BR, RB, HBR),
-        // Hip sections at gable ends (front)
-        ...tri(FL, RF, HFL),
-        ...tri(FL, FR, RF),   // filler below
-        ...tri(FR, HFR, RF),
-        // Lower slopes (eave to intermediate)
-        ...quad(BL, HBL, HFL, FL),
-        ...quad(BR, FR, HFR, HBR),
+        ...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR),
+        ...tri(KBL, RB, KBR),     ...tri(KFL, KFR, RF),
       ]
+      // Fill gable walls below knee with wall material
+      group.add(meshFrom([
+        ...quad([-hd, wH, -hw], KBL, KBR, [-hd, wH, hw]),
+        ...quad([hd, wH, -hw], [hd, wH, hw], KFR, KFL),
+      ], wMat))
       break
     }
 
     case 'pilova': {
-      // Sawtooth roof
-      const numSaws = Math.max(2, Math.round((d + 2 * ps) / Math.max(s / 2, 1)))
-      const sawW = (hd * 2) / numSaws
-      const sawH = (hw * 2) * Math.tan(slRad)
+      const N      = Math.max(2, Math.round((hd * 2) / Math.max(hw * 1.0, 1.5)))
+      const toothW = (hd * 2) / N
+      const toothH = hw * 1.3 * Math.tan(slRad)
+      const slopePct = 0.70
 
-      for (let i = 0; i < numSaws; i++) {
-        const x0 = -hd + i * sawW
-        const x1 = x0 + sawW
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: 0x88bbdd, roughness: 0.08, metalness: 0.25,
+        opacity: 0.72, transparent: true, side: THREE.DoubleSide,
+      })
 
-        // Slope face: rises from low (z=hw) to high (z=-hw) ... actually along height
-        // Sawtooth: slope goes up over x-distance, drops vertically
-        const A = [x0, wH,         -hw]
-        const B = [x0, wH,          hw]
-        const C = [x1, wH,          hw]
-        const D = [x1, wH,         -hw]
-        const E = [x1, wH + sawH,   hw]
-        const F = [x1, wH + sawH,  -hw]
-
-        // Slope face (quadrilateral: B→C→E and E→F and back to B via A)
-        pos.push(...quad(B, C, E, [x0, wH + sawH, hw]))  // sloped surface
-        // Replace with simpler: just an angled plane
-        pos.splice(pos.length - 12) // undo
-        // Sloped face: A at base-left, D at base-right, F at top-right, E_x0 at top-left
-        const Etop = [x0, wH + sawH,  hw]
-        const Ftop = [x0, wH + sawH, -hw]
-        // Slope goes: from (x0) low to (x1) high - along Z direction rising in Y
-        const Lo_L = [x0, wH,         -hw]
-        const Lo_R = [x0, wH,          hw]
-        const Hi_L = [x1, wH + sawH,  -hw]
-        const Hi_R = [x1, wH + sawH,   hw]
-        pos.push(...quad(Lo_R, Lo_L, Hi_L, Hi_R))
-
-        // Side triangles
-        pos.push(...tri(Lo_L, Lo_R, Hi_R))
-        pos.push(...tri(Lo_L, Hi_R, Hi_L))
-
-        // Vertical face (glass / north light) - render with different (darker) material later
-        // For now same material
-        if (i < numSaws - 1) {
-          const VBL = [x1, wH,          -hw]
-          const VBR = [x1, wH,           hw]
-          const VTL = [x1, wH + sawH,   -hw]
-          const VTR = [x1, wH + sawH,    hw]
-          // vertical glass panel - skip for simplicity
-        }
+      for (let i = 0; i < N; i++) {
+        const x0 = -hd + i * toothW
+        const xM = x0 + toothW * slopePct
+        const x1 = x0 + toothW
+        pos.push(...quad([x0,wH,hw],[x0,wH,-hw],[xM,wH+toothH,-hw],[xM,wH+toothH,hw]))
+        group.add(meshFrom(quad([xM,wH+toothH,hw],[xM,wH+toothH,-hw],[x1,wH,-hw],[x1,wH,hw]), glassMat.clone()))
+      }
+      for (let i = 0; i < N; i++) {
+        const x0 = -hd + i * toothW
+        const xM = x0 + toothW * slopePct
+        const x1 = x0 + toothW
+        pos.push(
+          ...tri([x0,wH,-hw],[xM,wH+toothH,-hw],[x1,wH,-hw]),
+          ...tri([x0,wH, hw],[x1,wH, hw],[xM,wH+toothH, hw]),
+        )
       }
       break
     }
 
     default: {
-      const RB = [-(hd), wH + h, 0]
-      const RF = [  hd,  wH + h, 0]
-      pos = [
-        ...quad(BL, FL, RF, RB),
-        ...quad(BR, RB, RF, FR),
-        ...tri(BL, RB, BR),
-        ...tri(FL, FR, RF),
-      ]
+      const RB = [-hd, wH + h, 0], RF = [hd, wH + h, 0]
+      pos = [...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR), ...tri(BL, RB, BR), ...tri(FL, FR, RF)]
     }
   }
 
-  if (pos.length > 0) {
-    group.add(meshFrom(pos, roofMat))
-  }
+  if (pos.length > 0) group.add(meshFrom(pos, mat))
 
-  // Ridge cap (decorative bar along ridge)
-  const capMat = new THREE.MeshStandardMaterial({ color: 0x7a2010, roughness: 0.9 })
-  if (typ !== 'pultova' && typ !== 'pilova') {
-    const rY = wH + h
-    const rX = typ === 'valbova' ? Math.max(0, hd - hw) : hd
-    const capGeo = new THREE.CylinderGeometry(0.05, 0.06, rX * 2, 8)
-    const cap = new THREE.Mesh(capGeo, capMat)
+  // Hřebenáč
+  if (!['pultova', 'pilova', 'stanova'].includes(typ)) {
+    const rY  = wH + (['mansardova'].includes(typ) ? h * 1.5 : h)
+    const rx  = typ === 'valbova' ? Math.max(0.1, hd - hw) : typ === 'pulvalbova' ? hd - hd * 0.22 : hd
+    const capMat = new THREE.MeshStandardMaterial({ color: 0x5a1800, roughness: 0.9 })
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, rx * 2, 6), capMat)
     cap.rotation.z = Math.PI / 2
-    cap.position.set(0, rY + 0.06, 0)
+    cap.position.set(0, rY + 0.08, 0)
     cap.castShadow = true
     group.add(cap)
   }
@@ -358,53 +220,218 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
   return group
 }
 
-export function buildBuilding(sirka, delka, wallHeight = 2.7) {
-  const s  = Math.max(parseFloat(sirka)  || 8, 2)
-  const d  = Math.max(parseFloat(delka)  || 12, 2)
-  const wH = Math.max(parseFloat(wallHeight) || 2.7, 1)
+// ─── Krov (timber frame) ─────────────────────────────────────────────────────
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z)
+
+function addBeam(group, mat, p1, p2, bw = 0.10, bh = 0.16) {
+  const dir = new THREE.Vector3().subVectors(p2, p1)
+  const len = dir.length()
+  if (len < 0.05) return
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, len), mat)
+  mesh.position.copy(new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5))
+  mesh.setRotationFromQuaternion(
+    new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir.normalize())
+  )
+  mesh.castShadow = true
+  group.add(mesh)
+}
+
+export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wallHeight = 3, roztecKrokvi = 900) {
+  const s   = Math.max(parseFloat(sirka)      || 8,   2)
+  const d   = Math.max(parseFloat(delka)      || 12,  2)
+  const po  = Math.max(parseFloat(presahOkap) || 0.5, 0)
+  const ps  = Math.max(parseFloat(presahStit) || 0.3, 0)
+  const wH  = Math.max(parseFloat(wallHeight) || 3,   1)
+  const slRad = Math.max(5, Math.min(parseFloat(sklon) || 35, 75)) * Math.PI / 180
+  const roz = Math.max(0.4, (parseFloat(roztecKrokvi) || 900) / 1000)
+  const h   = (s / 2) * Math.tan(slRad)
+
+  // ── Barevné kódování prvků ──────────────────────────────────────────────────
+  const mPoz    = new THREE.MeshStandardMaterial({ color: 0x4a2008, roughness: 0.85 })  // tmavě hnědá = pozednice
+  const mKrokev = new THREE.MeshStandardMaterial({ color: 0xa05020, roughness: 0.80 })  // středně hnědá = krokve
+  const mVaznice = new THREE.MeshStandardMaterial({ color: 0x6b3010, roughness: 0.85 }) // tmavší = vaznice
+  const mKles   = new THREE.MeshStandardMaterial({ color: 0xd08840, roughness: 0.78 })  // světlá = kleštiny
+  const mHreben = new THREE.MeshStandardMaterial({ color: 0x2e1005, roughness: 0.90 })  // nejtmavší = hřebenová vaznice
+  const mSloupek = new THREE.MeshStandardMaterial({ color: 0x7a4520, roughness: 0.85 }) // sloupky
 
   const group = new THREE.Group()
 
-  const wallTex = createWallTexture()
-  const wallMat = new THREE.MeshStandardMaterial({
-    map: wallTex, roughness: 0.85, metalness: 0.0,
-  })
+  // Rozteč krokví
+  const nMez = Math.max(1, Math.round(d / roz))
+  const dRoz = d / nMez
+  const krokvePosX = Array.from({ length: nMez + 1 }, (_, i) => -d / 2 + i * dRoz)
 
-  // Main box
-  const wallGeo = new THREE.BoxGeometry(d, wH, s)
-  const walls = new THREE.Mesh(wallGeo, wallMat)
-  walls.position.y = wH / 2
-  walls.castShadow = true
-  walls.receiveShadow = true
-  group.add(walls)
+  const buildSedlova = (ridgeZ = 0, ridgeH = h, leftPo = po, rightPo = po) => {
+    // Pozednice
+    addBeam(group, mPoz, V3(-d/2, wH + 0.06, -s/2), V3(d/2, wH + 0.06, -s/2), 0.16, 0.12)
+    addBeam(group, mPoz, V3(-d/2, wH + 0.06,  s/2), V3(d/2, wH + 0.06,  s/2), 0.16, 0.12)
 
-  // Windows (simple dark rectangles on walls - using box geometry)
-  const winMat = new THREE.MeshStandardMaterial({
-    color: 0x4488cc, roughness: 0.1, metalness: 0.3, opacity: 0.8, transparent: true,
-  })
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: 0.8 })
+    // Hřebenová vaznice
+    addBeam(group, mHreben, V3(-d/2 - ps, wH + ridgeH, ridgeZ), V3(d/2 + ps, wH + ridgeH, ridgeZ), 0.12, 0.10)
 
-  const addWindow = (wx, wy, wz, rx = 0) => {
-    const win = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.2, 0.05), winMat)
-    win.position.set(wx, wy, wz)
-    win.rotation.y = rx
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.25, 1.35, 0.04), frameMat)
-    frame.position.set(wx, wy, wz - 0.01)
-    frame.rotation.y = rx
-    group.add(win)
-    group.add(frame)
+    // Vaznice (mid-slope) pro delší krokve
+    if (ridgeH > 2.2) {
+      const vZ = (s / 2) * 0.55, vY = wH + ridgeH * 0.52
+      addBeam(group, mVaznice, V3(-d/2, vY, -vZ + ridgeZ * 0.5), V3(d/2, vY, -vZ + ridgeZ * 0.5), 0.14, 0.10)
+      addBeam(group, mVaznice, V3(-d/2, vY,  vZ + ridgeZ * 0.5), V3(d/2, vY,  vZ + ridgeZ * 0.5), 0.14, 0.10)
+    }
+
+    // Krokve + kleštiny
+    krokvePosX.forEach(x => {
+      addBeam(group, mKrokev, V3(x, wH, -(s/2 + leftPo)),  V3(x, wH + ridgeH, ridgeZ), 0.10, 0.16)
+      addBeam(group, mKrokev, V3(x, wH,   s/2 + rightPo),  V3(x, wH + ridgeH, ridgeZ), 0.10, 0.16)
+      // Kleštiny ve 2/3 výšky
+      const klY = wH + ridgeH * 0.62
+      const klZ = (s / 2) * 0.42 + Math.abs(ridgeZ) * 0.42
+      addBeam(group, mKles, V3(x, klY, -klZ + ridgeZ * 0.62), V3(x, klY, klZ + ridgeZ * 0.62), 0.08, 0.12)
+    })
   }
 
-  // Front windows
-  const frontZ = s / 2 + 0.01
-  addWindow(-d * 0.25, wH * 0.55, frontZ)
-  addWindow( d * 0.25, wH * 0.55, frontZ)
+  switch (typ) {
+    case 'sedlova':
+    case 'pulvalbova':
+      buildSedlova()
+      break
 
-  // Door
-  const doorMat = new THREE.MeshStandardMaterial({ color: 0x5c3d1e, roughness: 0.9 })
-  const door = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.0, 0.06), doorMat)
-  door.position.set(0, 1.0, frontZ)
+    case 'asymetricka':
+      buildSedlova(s * 0.10, h * 0.88)
+      break
+
+    case 'valbova': {
+      const rx = Math.max(0.05, d / 2 - s / 2)
+      // Pozednice (všechny 4 strany)
+      addBeam(group, mPoz, V3(-d/2, wH+0.06, -s/2), V3(d/2, wH+0.06, -s/2), 0.16, 0.12)
+      addBeam(group, mPoz, V3(-d/2, wH+0.06,  s/2), V3(d/2, wH+0.06,  s/2), 0.16, 0.12)
+      addBeam(group, mPoz, V3(-d/2, wH+0.06, -s/2), V3(-d/2, wH+0.06, s/2),  0.16, 0.12)
+      addBeam(group, mPoz, V3( d/2, wH+0.06, -s/2), V3( d/2, wH+0.06, s/2),  0.16, 0.12)
+
+      if (rx > 0.2) addBeam(group, mHreben, V3(-rx, wH+h, 0), V3(rx, wH+h, 0), 0.12, 0.10)
+
+      // Nárožní krokve
+      ;[[-d/2,-s/2],[-d/2,s/2],[d/2,-s/2],[d/2,s/2]].forEach(([cx,cz]) => {
+        const ridgeEnd = cx < 0 ? V3(-rx, wH+h, 0) : V3(rx, wH+h, 0)
+        addBeam(group, mKrokev, V3(cx, wH+0.06, cz), ridgeEnd, 0.12, 0.18)
+      })
+
+      // Středové krokve
+      krokvePosX.filter(x => x > -rx && x < rx).forEach(x => {
+        addBeam(group, mKrokev, V3(x, wH, -(s/2+po)), V3(x, wH+h, 0), 0.10, 0.16)
+        addBeam(group, mKrokev, V3(x, wH,  s/2+po),   V3(x, wH+h, 0), 0.10, 0.16)
+        const klY = wH + h * 0.62
+        addBeam(group, mKles, V3(x, klY, -(s/2)*0.42), V3(x, klY, (s/2)*0.42), 0.08, 0.12)
+      })
+      break
+    }
+
+    case 'stanova': {
+      const apex = V3(0, wH + h, 0)
+      ;[[-d/2,-s/2],[-d/2,s/2],[d/2,-s/2],[d/2,s/2]].forEach(([cx,cz]) =>
+        addBeam(group, mKrokev, V3(cx, wH+0.06, cz), apex, 0.12, 0.18)
+      )
+      addBeam(group, mPoz, V3(-d/2,wH+0.06,-s/2), V3(d/2,wH+0.06,-s/2), 0.16, 0.12)
+      addBeam(group, mPoz, V3(-d/2,wH+0.06, s/2), V3(d/2,wH+0.06, s/2),  0.16, 0.12)
+      addBeam(group, mPoz, V3(-d/2,wH+0.06,-s/2), V3(-d/2,wH+0.06,s/2),  0.16, 0.12)
+      addBeam(group, mPoz, V3( d/2,wH+0.06,-s/2), V3( d/2,wH+0.06,s/2),  0.16, 0.12)
+      krokvePosX.forEach(x => {
+        addBeam(group, mKrokev, V3(x, wH, -(s/2+po)), apex, 0.10, 0.16)
+        addBeam(group, mKrokev, V3(x, wH,  s/2+po),  apex, 0.10, 0.16)
+      })
+      break
+    }
+
+    case 'pultova': {
+      const hF = s * Math.tan(slRad)
+      addBeam(group, mPoz, V3(-d/2, wH+0.06, -(s/2+po)), V3(d/2, wH+0.06, -(s/2+po)), 0.16, 0.12)
+      addBeam(group, mPoz, V3(-d/2, wH+hF+0.06, s/2), V3(d/2, wH+hF+0.06, s/2), 0.16, 0.12)
+      krokvePosX.forEach(x =>
+        addBeam(group, mKrokev, V3(x, wH, -(s/2+po)), V3(x, wH+hF, s/2), 0.10, 0.16)
+      )
+      break
+    }
+
+    case 'mansardova': {
+      const lSlope = Math.min(slRad * 1.9, Math.PI * 0.43)
+      const lFrac = 0.40, lHw = s/2 * lFrac, lH = lHw * Math.tan(lSlope)
+      const kneeZ = s/2 - lHw, kneeY = wH + lH
+      const uH = (s/2 - lHw) * Math.tan(slRad)
+
+      addBeam(group, mPoz, V3(-d/2, wH+0.06, -s/2), V3(d/2, wH+0.06, -s/2), 0.16, 0.12)
+      addBeam(group, mPoz, V3(-d/2, wH+0.06,  s/2), V3(d/2, wH+0.06,  s/2), 0.16, 0.12)
+      // Pozednice kolena (upper)
+      addBeam(group, mVaznice, V3(-d/2, kneeY, -kneeZ), V3(d/2, kneeY, -kneeZ), 0.14, 0.10)
+      addBeam(group, mVaznice, V3(-d/2, kneeY,  kneeZ), V3(d/2, kneeY,  kneeZ), 0.14, 0.10)
+      addBeam(group, mHreben, V3(-d/2, kneeY+uH, 0), V3(d/2, kneeY+uH, 0), 0.12, 0.10)
+
+      // Sloupky (knee wall posts) each other rafter
+      krokvePosX.filter((_, i) => i % 2 === 0).forEach(x => {
+        addBeam(group, mSloupek, V3(x, wH+0.12, -kneeZ), V3(x, kneeY, -kneeZ), 0.12, 0.12)
+        addBeam(group, mSloupek, V3(x, wH+0.12,  kneeZ), V3(x, kneeY,  kneeZ), 0.12, 0.12)
+      })
+
+      krokvePosX.forEach(x => {
+        addBeam(group, mKrokev, V3(x, wH, -(s/2+po)), V3(x, kneeY, -kneeZ), 0.10, 0.16)
+        addBeam(group, mKrokev, V3(x, wH,  s/2+po),   V3(x, kneeY,  kneeZ), 0.10, 0.16)
+        addBeam(group, mKrokev, V3(x, kneeY, -kneeZ), V3(x, kneeY+uH, 0),    0.10, 0.14)
+        addBeam(group, mKrokev, V3(x, kneeY,  kneeZ), V3(x, kneeY+uH, 0),    0.10, 0.14)
+        // Kleštiny horní části
+        const klY = kneeY + uH * 0.55
+        addBeam(group, mKles, V3(x, klY, -kneeZ * 0.45), V3(x, klY, kneeZ * 0.45), 0.08, 0.12)
+      })
+      break
+    }
+
+    case 'pilova': {
+      const N = Math.max(2, Math.round((d) / Math.max(s * 0.8, 1.5)))
+      const segW = d / N, segH = s * Math.tan(slRad)
+      addBeam(group, mPoz, V3(-d/2,wH+0.06,-s/2), V3(d/2,wH+0.06,-s/2), 0.16, 0.12)
+      addBeam(group, mPoz, V3(-d/2,wH+0.06, s/2), V3(d/2,wH+0.06, s/2),  0.16, 0.12)
+      for (let i = 0; i <= N; i++) {
+        const x = -d/2 + i * segW
+        addBeam(group, mKrokev, V3(x, wH, s/2+po), V3(x, wH+segH, -s/2), 0.10, 0.16)
+        if (i < N) {
+          addBeam(group, mHreben, V3(x, wH+segH, -s/2), V3(x, wH+segH, s/2), 0.08, 0.08)
+          addBeam(group, mVaznice, V3(x, wH+segH, -s/2), V3(x+segW, wH+segH, -s/2), 0.10, 0.10)
+        }
+      }
+      break
+    }
+
+    default:
+      buildSedlova()
+  }
+
+  return group
+}
+
+// ─── Building ─────────────────────────────────────────────────────────────────
+export function buildBuilding(sirka, delka, wallHeight = 2.7) {
+  const s  = Math.max(parseFloat(sirka)  || 8,  2)
+  const d  = Math.max(parseFloat(delka)  || 12, 2)
+  const wH = Math.max(parseFloat(wallHeight) || 2.7, 1)
+  const group = new THREE.Group()
+
+  const walls = new THREE.Mesh(new THREE.BoxGeometry(d, wH, s), wallMaterial())
+  walls.position.y = wH / 2
+  walls.castShadow = true; walls.receiveShadow = true
+  group.add(walls)
+
+  const winMat  = new THREE.MeshStandardMaterial({ color: 0x5599cc, roughness: 0.05, metalness: 0.4, opacity: 0.85, transparent: true })
+  const fraMat  = new THREE.MeshStandardMaterial({ color: 0xfaf0e0, roughness: 0.8 })
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x4a2e10, roughness: 0.9 })
+
+  const fz = s / 2 + 0.01
+  const addWin = (x, y) => {
+    const w = new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.15, 0.04), winMat)
+    w.position.set(x, y, fz)
+    const f = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.35, 0.03), fraMat)
+    f.position.set(x, y, fz - 0.005)
+    group.add(w, f)
+  }
+  addWin(-d * 0.28, wH * 0.58)
+  addWin( d * 0.28, wH * 0.58)
+
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.95, 0.05), doorMat)
+  door.position.set(0, 0.975, fz)
   group.add(door)
-
   return group
 }
