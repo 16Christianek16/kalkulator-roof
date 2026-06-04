@@ -1,5 +1,5 @@
-import { useMemo, useEffect, useRef, useState } from 'react'
-import { LayoutDashboard, FileDown, Upload } from 'lucide-react'
+import { useMemo, useEffect, useRef, useState, lazy, Suspense } from 'react'
+import { LayoutDashboard, FileDown, Upload, Box, Map } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '../../components/ui/PageHeader'
@@ -11,6 +11,8 @@ import { useRoofStore } from '../../store/roofStore'
 import { formatNum } from '../../utils/calculations'
 import { exportRoofPdf } from '../../utils/pdfExport'
 import { parseRoofCsv } from '../../utils/csvImport'
+
+const RoofPreview3D = lazy(() => import('../../components/ui/RoofPreview3D'))
 
 const TYPY = [
   { id: 'sedlova',     skupinaCs: 'Základní', skupinaEn: 'Basic' },
@@ -232,6 +234,7 @@ export default function Pudorys() {
   } = useRoofStore()
 
   const [showModal, setShowModal] = useState(false)
+  const [view3d, setView3d] = useState(false)
   const [csvError, setCsvError] = useState('')
   const isMounted = useRef(false)
   const lastShown = useRef(null)
@@ -357,12 +360,44 @@ export default function Pudorys() {
         </CalcCard>
 
         <div className="lg:col-span-2">
-          <CalcCard title="Půdorys střechy">
-            <div className="overflow-x-auto">
-              <PudorysSVG typ={typ} sirka={sirka} delka={delka}
-                presahOkap={presahOkap} presahStit={presahStit}
-                roztecKrokvi={roztecKrokvi} />
+          <CalcCard title={
+            <div className="flex items-center justify-between w-full">
+              <span>{view3d ? '3D Náhled střechy' : 'Půdorys střechy'}</span>
+              <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: '#e2e8f0' }}>
+                <button onClick={() => setView3d(false)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors"
+                  style={!view3d
+                    ? { background: '#0f172a', color: '#fff' }
+                    : { background: '#f8fafc', color: '#64748b' }}>
+                  <Map size={13} /> 2D
+                </button>
+                <button onClick={() => setView3d(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors"
+                  style={view3d
+                    ? { background: '#f97316', color: '#fff' }
+                    : { background: '#f8fafc', color: '#64748b' }}>
+                  <Box size={13} /> 3D
+                </button>
+              </div>
             </div>
+          }>
+            {view3d ? (
+              <Suspense fallback={
+                <div className="flex items-center justify-center rounded-xl" style={{ height: 420, background: '#f1f5f9' }}>
+                  <div className="text-sm" style={{ color: '#94a3b8' }}>Načítám 3D náhled…</div>
+                </div>
+              }>
+                <RoofPreview3D
+                  typ={typ} sirka={sirka} delka={delka} sklon={sklon}
+                  presahOkap={presahOkap} presahStit={presahStit} vyskaZdi={vyskaZdi} />
+              </Suspense>
+            ) : (
+              <div className="overflow-x-auto">
+                <PudorysSVG typ={typ} sirka={sirka} delka={delka}
+                  presahOkap={presahOkap} presahStit={presahStit}
+                  roztecKrokvi={roztecKrokvi} />
+              </div>
+            )}
           </CalcCard>
         </div>
       </div>
