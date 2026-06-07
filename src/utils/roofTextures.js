@@ -148,7 +148,7 @@ function drawBobrovka() {
       hCtx.fillStyle = hGrd; hCtx.fill()
     }
   }
-  return makeMat(cC, cH, { roughness: 0.90, baseRepeatX: 3.5, baseRepeatY: 2.5, normalStrength: 5 })
+  return makeMat(cC, cH, { roughness: 0.90, baseRepeatX: 7.5, baseRepeatY: 5.0, normalStrength: 5 })
 }
 
 // ── 2. PÁLENÁ TAŠKA (esovitá/vlnitá) ─────────────────────────────────────────
@@ -204,7 +204,7 @@ function drawPalenaTaska(hue = 14, sat = 65, light = 42) {
       }
     }
   }
-  return makeMat(cC, cH, { roughness: 0.87, baseRepeatX: 3.0, baseRepeatY: 2.0, normalStrength: 6 })
+  return makeMat(cC, cH, { roughness: 0.87, baseRepeatX: 7.0, baseRepeatY: 4.5, normalStrength: 6 })
 }
 
 // ── 3. BETONOVÁ TAŠKA ─────────────────────────────────────────────────────────
@@ -262,7 +262,7 @@ function drawBetonova() {
       hCtx.fillRect(x + gap, y + tH - gap - 5, tW - gap * 2, 5)
     }
   }
-  return makeMat(cC, cH, { roughness: 0.92, baseRepeatX: 3.0, baseRepeatY: 2.0, normalStrength: 4 })
+  return makeMat(cC, cH, { roughness: 0.92, baseRepeatX: 6.0, baseRepeatY: 4.0, normalStrength: 4 })
 }
 
 // ── 4. BRIDLICE ───────────────────────────────────────────────────────────────
@@ -316,7 +316,7 @@ function drawBridlice() {
     }
     rowY += tH; ri++
   }
-  return makeMat(cC, cH, { roughness: 0.95, baseRepeatX: 2.5, baseRepeatY: 2.0, normalStrength: 5 })
+  return makeMat(cC, cH, { roughness: 0.95, baseRepeatX: 6.0, baseRepeatY: 5.0, normalStrength: 5 })
 }
 
 // ── 5. DŘEVĚNÝ ŠINDEL ────────────────────────────────────────────────────────
@@ -375,7 +375,7 @@ function drawSindel() {
       hCtx.fillRect(x + gap, y + tH - gap - 4, tW - gap * 2, 4)
     }
   }
-  return makeMat(cC, cH, { roughness: 0.97, baseRepeatX: 2.0, baseRepeatY: 2.5, normalStrength: 4 })
+  return makeMat(cC, cH, { roughness: 0.97, baseRepeatX: 5.0, baseRepeatY: 6.0, normalStrength: 4 })
 }
 
 // ── 6. FALCOVANÝ PLECH (stojatá falc) ────────────────────────────────────────
@@ -429,7 +429,7 @@ function drawFalcovany(r, g, b) {
     hCtx.fillStyle = 'rgba(0,0,0,0.7)'; hCtx.fillRect(0, py, SZ, 3)
   }
 
-  return makeMat(cC, cH, { roughness: 0.22, metalness: 0.80, baseRepeatX: 2.5, baseRepeatY: 1.0, normalStrength: 6 })
+  return makeMat(cC, cH, { roughness: 0.22, metalness: 0.80, baseRepeatX: 6.0, baseRepeatY: 1.5, normalStrength: 6 })
 }
 
 // ── 7. TRAPÉZOVÝ PLECH ────────────────────────────────────────────────────────
@@ -486,7 +486,7 @@ function drawTrapez(r, g, b) {
     hCtx.fillStyle = 'rgba(0,0,0,0.7)'; hCtx.fillRect(0, py, SZ, 3)
   }
 
-  return makeMat(cC, cH, { roughness: 0.30, metalness: 0.72, baseRepeatX: 4.0, baseRepeatY: 1.0, normalStrength: 7 })
+  return makeMat(cC, cH, { roughness: 0.30, metalness: 0.72, baseRepeatX: 9.0, baseRepeatY: 1.5, normalStrength: 7 })
 }
 
 // ── 8. VLNITÝ PLECH ───────────────────────────────────────────────────────────
@@ -521,7 +521,7 @@ function drawVlnity(r, g, b) {
     hCtx.fillStyle = 'rgba(0,0,0,0.6)'; hCtx.fillRect(0, py, SZ, 2)
   }
 
-  return makeMat(cC, cH, { roughness: 0.32, metalness: 0.68, baseRepeatX: 4.5, baseRepeatY: 1.0, normalStrength: 7 })
+  return makeMat(cC, cH, { roughness: 0.32, metalness: 0.68, baseRepeatX: 9.0, baseRepeatY: 1.5, normalStrength: 7 })
 }
 
 // ── 9. RÁKOS ──────────────────────────────────────────────────────────────────
@@ -561,7 +561,7 @@ function drawRakos() {
     ctx.stroke()
   }
 
-  return makeMat(cC, cH, { roughness: 0.98, baseRepeatX: 1.0, baseRepeatY: 1.5, normalStrength: 3 })
+  return makeMat(cC, cH, { roughness: 0.98, baseRepeatX: 2.5, baseRepeatY: 4.0, normalStrength: 3 })
 }
 
 // ── 10. ASFALTOVÝ ŠINDEL ─────────────────────────────────────────────────────
@@ -608,7 +608,7 @@ function drawAsfaltSindel() {
       hCtx.fillRect(x + gap, y + tH - gap - 4, tW - gap * 2, 4)
     }
   }
-  return makeMat(cC, cH, { roughness: 0.96, baseRepeatX: 3.5, baseRepeatY: 2.5, normalStrength: 4 })
+  return makeMat(cC, cH, { roughness: 0.96, baseRepeatX: 7.0, baseRepeatY: 5.0, normalStrength: 4 })
 }
 
 // ── 11. PLECHOVÁ TAŠKA (Lindab styl) ─────────────────────────────────────────
@@ -670,7 +670,7 @@ function drawPlechovaTaska() {
       hCtx.fillRect(x + gap, y + tH - gap - 5, tW - gap * 2, 5)
     }
   }
-  return makeMat(cC, cH, { roughness: 0.30, metalness: 0.70, baseRepeatX: 3.0, baseRepeatY: 2.0, normalStrength: 5 })
+  return makeMat(cC, cH, { roughness: 0.30, metalness: 0.70, baseRepeatX: 6.5, baseRepeatY: 4.5, normalStrength: 5 })
 }
 
 // ── 12. VLÁKNOCEMENT ──────────────────────────────────────────────────────────
@@ -724,7 +724,9 @@ function drawVlaknocement() {
 export function buildKrytinaMateriál(krytina) {
   return cached(krytina, () => {
     switch (krytina) {
-      case 'bobrovka':                              return drawBobrovka()
+      // baseRepeatX/Y = počet opakování textury na 10m délky / 5m svahu
+      // s world-space UV: rX = baseRepeatX/10, rY = baseRepeatY/5 (tiles per metr)
+      case 'bobrovka':                              return drawBobrovka()          // 8×10 tašek/textura
       case 'palena_drsnata': case 'keramicka':      return drawPalenaTaska(13, 60, 38)
       case 'palena_romana': case 'tondach_figaro':  return drawPalenaTaska(16, 65, 42)
       case 'palena_francouzska': case 'palena_stredomorska': return drawPalenaTaska(18, 58, 44)

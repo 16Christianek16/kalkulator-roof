@@ -1,50 +1,146 @@
 import * as THREE from 'three'
 import { buildKrytinaMateriál } from './roofTextures'
 
-// ─── Geometry helpers ────────────────────────────────────────────────────────
+// ─── Geometry helpers ─────────────────────────────────────────────────────────
 function quad(A, B, C, D) { return [...A, ...B, ...C, ...A, ...C, ...D] }
 function tri(A, B, C)     { return [...A, ...B, ...C] }
 
+// ─── Mesh builder with world-space UV ────────────────────────────────────────
+// UV.x = world X, UV.y = world Z — funguje s RepeatWrapping pro tiling krytiny
 function meshFrom(positions, material) {
   const geo = new THREE.BufferGeometry()
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(positions), 3))
+  const verts = new Float32Array(positions)
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3))
+
+  // World-space planar XZ UV — tiling je řízen repeat na materiálu
+  const count = verts.length / 3
+  const uvs = new Float32Array(count * 2)
+  for (let i = 0; i < count; i++) {
+    uvs[i * 2]     =  verts[i * 3]       // U = X
+    uvs[i * 2 + 1] = -verts[i * 3 + 2]   // V = -Z (tak jdou řady tašek od hřebene dolů)
+  }
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
   geo.computeVertexNormals()
+
   const m = new THREE.Mesh(geo, material)
   m.castShadow = true
   m.receiveShadow = true
   return m
 }
 
-// ─── Wall texture ─────────────────────────────────────────────────────────────
-function wallMaterial() {
-  const SZ = 512
-  const c = document.createElement('canvas'); c.width = SZ; c.height = SZ
-  const x = c.getContext('2d')
-  x.fillStyle = '#f2ead8'; x.fillRect(0, 0, SZ, SZ)
-  for (let i = 0; i < 1500; i++) {
-    x.fillStyle = `rgba(0,0,0,${Math.random() * 0.03})`
-    x.fillRect(Math.random() * SZ, Math.random() * SZ, 3, 2)
-  }
-  const t = new THREE.CanvasTexture(c)
-  t.wrapS = t.wrapT = THREE.RepeatWrapping
-  t.repeat.set(3, 2)
-  return new THREE.MeshStandardMaterial({ map: t, roughness: 0.9, side: THREE.DoubleSide })
-}
-
-// ─── Apply texture repeat ─────────────────────────────────────────────────────
-// baseRepeat = opakování pro standardní střechu 10m délka / 5m svah
-// Škálujeme lineárně podle skutečných rozměrů střechy
-function applyRepeat(mat, slopeLen, ridgeLen) {
+// ─── Texture repeat ───────────────────────────────────────────────────────────
+// World-space UV: 1 UV unit = 1 m. Repeat = počet opakování na referenčních 10/5 m.
+function applyRepeat(mat, _slopeLen, _ridgeLen) {
   const { baseRepeatX, baseRepeatY } = mat.userData
   if (!baseRepeatX) return
-  const rX = baseRepeatX * (ridgeLen / 10.0)
-  const rY = baseRepeatY * (slopeLen / 5.0)
+  const rX = baseRepeatX / 10.0  // tiles per metr ve směru hřebene
+  const rY = baseRepeatY / 5.0   // tiles per metr ve směru svahu
   if (mat.map)       { mat.map.repeat.set(rX, rY);       mat.map.needsUpdate = true }
   if (mat.normalMap) { mat.normalMap.repeat.set(rX, rY); mat.normalMap.needsUpdate = true }
 }
 
+// ─── Materials ────────────────────────────────────────────────────────────────
+let _wallMat = null
+function wallMaterial() {
+  if (_wallMat) return _wallMat.clone()
+  const SZ = 512
+  const c = document.createElement('canvas'); c.width = SZ; c.height = SZ
+  const ctx = c.getContext('2d')
+  // Omítkový základ
+  ctx.fillStyle = '#f0e8d4'; ctx.fillRect(0, 0, SZ, SZ)
+  // Jemný noise omítky
+  for (let i = 0; i < 3000; i++) {
+    const x = Math.sin(i * 7.3) * 0.5 + 0.5, y = Math.sin(i * 4.1) * 0.5 + 0.5
+    ctx.fillStyle = `rgba(0,0,0,${(Math.sin(i * 2.7) * 0.5 + 0.5) * 0.04})`
+    ctx.fillRect(x * SZ, y * SZ, 2, 2)
+  }
+  // Jemná strojová textura
+  for (let y = 0; y < SZ; y += 8) {
+    ctx.fillStyle = 'rgba(0,0,0,0.015)'
+    ctx.fillRect(0, y, SZ, 1)
+  }
+  const t = new THREE.CanvasTexture(c)
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  t.repeat.set(3, 2)
+  _wallMat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.88, side: THREE.DoubleSide })
+  return _wallMat.clone()
+}
+
+// ─── Building ─────────────────────────────────────────────────────────────────
+export function buildBuilding(sirka, delka, wallHeight = 2.7) {
+  const s  = Math.max(parseFloat(sirka)  || 8,  2)
+  const d  = Math.max(parseFloat(delka)  || 12, 2)
+  const wH = Math.max(parseFloat(wallHeight) || 2.7, 1)
+  const group = new THREE.Group()
+
+  // Zdi — BoxGeometry má vlastní UVs
+  const walls = new THREE.Mesh(new THREE.BoxGeometry(d, wH, s), wallMaterial())
+  walls.position.y = wH / 2
+  walls.castShadow = true; walls.receiveShadow = true
+  group.add(walls)
+
+  // Materiály
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x88ccee, roughness: 0.05, metalness: 0.3,
+    opacity: 0.35, transparent: true,
+  })
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0xf5f0e8, roughness: 0.7 })
+  const doorMat  = new THREE.MeshStandardMaterial({ color: 0x3d2810, roughness: 0.88 })
+  const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0xf0e8d0, roughness: 0.7 })
+
+  const addWindow = (x, y, fz, wW = 0.90, wHt = 1.10) => {
+    const g = new THREE.Mesh(new THREE.BoxGeometry(wW, wHt, 0.04), glassMat.clone())
+    g.position.set(x, y, fz)
+    const fr = new THREE.Mesh(new THREE.BoxGeometry(wW + 0.14, wHt + 0.14, 0.07), frameMat.clone())
+    fr.position.set(x, y, fz - 0.015)
+    const hBar = new THREE.Mesh(new THREE.BoxGeometry(wW + 0.16, 0.06, 0.09), frameMat.clone())
+    hBar.position.set(x, y, fz - 0.015)
+    const vBar = new THREE.Mesh(new THREE.BoxGeometry(0.06, wHt + 0.16, 0.09), frameMat.clone())
+    vBar.position.set(x, y, fz - 0.015)
+    ;[g, fr, hBar, vBar].forEach(m => { m.castShadow = true; m.receiveShadow = true })
+    group.add(g, fr, hBar, vBar)
+  }
+
+  const fz = s / 2 + 0.01
+  // Přední okna
+  addWindow(-d * 0.30, wH * 0.58, fz)
+  addWindow( d * 0.30, wH * 0.58, fz)
+
+  // Zadní okna
+  addWindow(-d * 0.30, wH * 0.58, -fz)
+  addWindow( d * 0.30, wH * 0.58, -fz)
+
+  // Boční okno levé
+  addWindow(0, wH * 0.58, 0) // placeholder přidáme na bok
+
+  // Dveře — přední
+  const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(1.02, 2.12, 0.08), doorFrameMat)
+  doorFrame.position.set(0, 1.06, fz - 0.01)
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.90, 2.00, 0.06), doorMat)
+  door.position.set(0, 1.00, fz + 0.01)
+  ;[doorFrame, door].forEach(m => { m.castShadow = true; m.receiveShadow = true })
+  group.add(doorFrame, door)
+
+  // Boční okna (na kratší straně)
+  const bx = d / 2 + 0.01
+  addWindowSide(-bx, wH * 0.58, -s * 0.2, 0.80, 1.00, group, glassMat, frameMat)
+  addWindowSide(-bx, wH * 0.58,  s * 0.2, 0.80, 1.00, group, glassMat, frameMat)
+  addWindowSide( bx, wH * 0.58, -s * 0.2, 0.80, 1.00, group, glassMat, frameMat)
+  addWindowSide( bx, wH * 0.58,  s * 0.2, 0.80, 1.00, group, glassMat, frameMat)
+
+  return group
+}
+
+function addWindowSide(fx, y, z, wW, wHt, group, glassMat, frameMat) {
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(0.04, wHt, wW), glassMat)
+  glass.position.set(fx, y, z)
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.06, wHt + 0.12, wW + 0.12), frameMat)
+  frame.position.set(fx - 0.01, y, z)
+  ;[glass, frame].forEach(m => { m.castShadow = true; m.receiveShadow = true; group.add(m) })
+}
+
 // ─── Main roof builder ────────────────────────────────────────────────────────
-export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit, wallHeight = 2.7, krytina = 'bobrovka') {
+export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit, wallHeight = 2.7, krytina = 'bobrovka', roofColor = '#ffffff') {
   const s  = Math.max(parseFloat(sirka)      || 8,   2)
   const d  = Math.max(parseFloat(delka)      || 12,  2)
   const po = Math.max(parseFloat(presahOkap) || 0.3, 0)
@@ -61,10 +157,14 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
   const FR = [ hd, wH,  hw]
   const BR = [-hd, wH,  hw]
 
-  const slopeLen  = Math.sqrt(hw * hw + h * h)   // délka svahu
-  const ridgeLen  = hd * 2                        // délka hřebene
+  const slopeLen = Math.sqrt(hw * hw + h * h)
+  const ridgeLen = hd * 2
 
-  const mat  = buildKrytinaMateriál(krytina)
+  const mat = buildKrytinaMateriál(krytina)
+  // Aplikuj barvu (white = bez změny, jiná barva = tint)
+  if (roofColor && roofColor !== '#ffffff') {
+    mat.color = new THREE.Color(roofColor)
+  }
   applyRepeat(mat, slopeLen, ridgeLen)
 
   const wMat = wallMaterial()
@@ -131,15 +231,14 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
       const IFR = [hd, iY, iZp], IBR = [-hd, iY, iZp]
       const RB = [-hd, iY + uH, 0], RF = [hd, iY + uH, 0]
 
-      // Lower slopes (steeper) — same material, shorter slope
       const lMat = buildKrytinaMateriál(krytina)
+      if (roofColor && roofColor !== '#ffffff') lMat.color = new THREE.Color(roofColor)
       applyRepeat(lMat, lHw / Math.cos(lSlope), ridgeLen)
       group.add(meshFrom([
         ...quad(BL, FL, IFL, IBL), ...quad(BR, IBR, IFR, FR),
         ...quad(BL, IBL, IBR, BR), ...quad(FL, FR, IFR, IFL),
       ], lMat))
 
-      // Upper slopes (shallower)
       applyRepeat(mat, uHw / Math.cos(slRad), ridgeLen)
       pos = [
         ...quad(IBL, IFL, RF, RB), ...quad(IBR, RB, RF, IFR),
@@ -159,7 +258,6 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
         ...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR),
         ...tri(KBL, RB, KBR),     ...tri(KFL, KFR, RF),
       ]
-      // Fill gable walls below knee with wall material
       group.add(meshFrom([
         ...quad([-hd, wH, -hw], KBL, KBR, [-hd, wH, hw]),
         ...quad([hd, wH, -hw], [hd, wH, hw], KFR, KFL),
@@ -205,19 +303,62 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
 
   if (pos.length > 0) group.add(meshFrom(pos, mat))
 
-  // Hřebenáč
+  // ── Hřebenáč (výraznější) ────────────────────────────────────────────────────
   if (!['pultova', 'pilova', 'stanova'].includes(typ)) {
-    const rY  = wH + (['mansardova'].includes(typ) ? h * 1.5 : h)
-    const rx  = typ === 'valbova' ? Math.max(0.1, hd - hw) : typ === 'pulvalbova' ? hd - hd * 0.22 : hd
-    const capMat = new THREE.MeshStandardMaterial({ color: 0x5a1800, roughness: 0.9 })
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, rx * 2, 6), capMat)
+    const rY  = wH + (typ === 'mansardova' ? h * 1.5 : h)
+    const rx  = typ === 'valbova'   ? Math.max(0.1, hd - hw)
+              : typ === 'pulvalbova' ? hd - hd * 0.22
+              : hd
+    const capMat = new THREE.MeshStandardMaterial({ color: 0x3a1000, roughness: 0.90 })
+    // Hlavní válcový hřebenáč
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.10, rx * 2, 8), capMat)
     cap.rotation.z = Math.PI / 2
-    cap.position.set(0, rY + 0.08, 0)
+    cap.position.set(0, rY + 0.09, 0)
     cap.castShadow = true
     group.add(cap)
+    // Čelní zakončení hřebene
+    ;[-rx, rx].forEach(ex => {
+      const end = new THREE.Mesh(new THREE.SphereGeometry(0.10, 8, 6), capMat)
+      end.position.set(ex, rY + 0.09, 0)
+      end.castShadow = true
+      group.add(end)
+    })
   }
 
+  // ── Okapní plech ─────────────────────────────────────────────────────────────
+  addEaveTrim(group, typ, hd, hw, wH, h)
+
   return group
+}
+
+// ── Okapní plech po obvodu střechy ──────────────────────────────────────────
+function addEaveTrim(group, typ, hd, hw, wH, h) {
+  const trimMat = new THREE.MeshStandardMaterial({
+    color: 0x888898, roughness: 0.3, metalness: 0.6,
+  })
+  const tH = 0.12, tD = 0.06 // výška a tloušťka okapního plechu
+
+  const addBar = (x1, z1, x2, z2) => {
+    const len = Math.sqrt((x2-x1)**2 + (z2-z1)**2)
+    if (len < 0.1) return
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(len, tH, tD), trimMat)
+    bar.position.set((x1+x2)/2, wH - tH/2, (z1+z2)/2)
+    bar.rotation.y = Math.atan2(z2-z1, x2-x1)
+    bar.castShadow = true; bar.receiveShadow = true
+    group.add(bar)
+  }
+
+  // Okapní plech podél okapních hran (kde je presah)
+  if (['sedlova','asymetricka','mansardova','pulvalbova','pultova'].includes(typ)) {
+    addBar(-hd, -hw, hd, -hw)  // přední okap
+    addBar(-hd,  hw, hd,  hw)  // zadní okap
+  }
+  if (['valbova','stanova'].includes(typ)) {
+    addBar(-hd, -hw, hd, -hw)
+    addBar(-hd,  hw, hd,  hw)
+    addBar(-hd, -hw, -hd, hw)
+    addBar( hd, -hw,  hd, hw)
+  }
 }
 
 // ─── Krov (timber frame) ─────────────────────────────────────────────────────
@@ -246,41 +387,33 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
   const roz = Math.max(0.4, (parseFloat(roztecKrokvi) || 900) / 1000)
   const h   = (s / 2) * Math.tan(slRad)
 
-  // ── Barevné kódování prvků ──────────────────────────────────────────────────
-  const mPoz    = new THREE.MeshStandardMaterial({ color: 0x4a2008, roughness: 0.85 })  // tmavě hnědá = pozednice
-  const mKrokev = new THREE.MeshStandardMaterial({ color: 0xa05020, roughness: 0.80 })  // středně hnědá = krokve
-  const mVaznice = new THREE.MeshStandardMaterial({ color: 0x6b3010, roughness: 0.85 }) // tmavší = vaznice
-  const mKles   = new THREE.MeshStandardMaterial({ color: 0xd08840, roughness: 0.78 })  // světlá = kleštiny
-  const mHreben = new THREE.MeshStandardMaterial({ color: 0x2e1005, roughness: 0.90 })  // nejtmavší = hřebenová vaznice
-  const mSloupek = new THREE.MeshStandardMaterial({ color: 0x7a4520, roughness: 0.85 }) // sloupky
+  const mPoz     = new THREE.MeshStandardMaterial({ color: 0x4a2008, roughness: 0.85 })
+  const mKrokev  = new THREE.MeshStandardMaterial({ color: 0xa05020, roughness: 0.80 })
+  const mVaznice = new THREE.MeshStandardMaterial({ color: 0x6b3010, roughness: 0.85 })
+  const mKles    = new THREE.MeshStandardMaterial({ color: 0xd08840, roughness: 0.78 })
+  const mHreben  = new THREE.MeshStandardMaterial({ color: 0x2e1005, roughness: 0.90 })
+  const mSloupek = new THREE.MeshStandardMaterial({ color: 0x7a4520, roughness: 0.85 })
 
   const group = new THREE.Group()
 
-  // Rozteč krokví
   const nMez = Math.max(1, Math.round(d / roz))
   const dRoz = d / nMez
   const krokvePosX = Array.from({ length: nMez + 1 }, (_, i) => -d / 2 + i * dRoz)
 
   const buildSedlova = (ridgeZ = 0, ridgeH = h, leftPo = po, rightPo = po) => {
-    // Pozednice
     addBeam(group, mPoz, V3(-d/2, wH + 0.06, -s/2), V3(d/2, wH + 0.06, -s/2), 0.16, 0.12)
     addBeam(group, mPoz, V3(-d/2, wH + 0.06,  s/2), V3(d/2, wH + 0.06,  s/2), 0.16, 0.12)
-
-    // Hřebenová vaznice
     addBeam(group, mHreben, V3(-d/2 - ps, wH + ridgeH, ridgeZ), V3(d/2 + ps, wH + ridgeH, ridgeZ), 0.12, 0.10)
 
-    // Vaznice (mid-slope) pro delší krokve
     if (ridgeH > 2.2) {
       const vZ = (s / 2) * 0.55, vY = wH + ridgeH * 0.52
       addBeam(group, mVaznice, V3(-d/2, vY, -vZ + ridgeZ * 0.5), V3(d/2, vY, -vZ + ridgeZ * 0.5), 0.14, 0.10)
       addBeam(group, mVaznice, V3(-d/2, vY,  vZ + ridgeZ * 0.5), V3(d/2, vY,  vZ + ridgeZ * 0.5), 0.14, 0.10)
     }
 
-    // Krokve + kleštiny
     krokvePosX.forEach(x => {
       addBeam(group, mKrokev, V3(x, wH, -(s/2 + leftPo)),  V3(x, wH + ridgeH, ridgeZ), 0.10, 0.16)
       addBeam(group, mKrokev, V3(x, wH,   s/2 + rightPo),  V3(x, wH + ridgeH, ridgeZ), 0.10, 0.16)
-      // Kleštiny ve 2/3 výšky
       const klY = wH + ridgeH * 0.62
       const klZ = (s / 2) * 0.42 + Math.abs(ridgeZ) * 0.42
       addBeam(group, mKles, V3(x, klY, -klZ + ridgeZ * 0.62), V3(x, klY, klZ + ridgeZ * 0.62), 0.08, 0.12)
@@ -288,32 +421,20 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
   }
 
   switch (typ) {
-    case 'sedlova':
-    case 'pulvalbova':
-      buildSedlova()
-      break
-
-    case 'asymetricka':
-      buildSedlova(s * 0.10, h * 0.88)
-      break
+    case 'sedlova': case 'pulvalbova': buildSedlova(); break
+    case 'asymetricka': buildSedlova(s * 0.10, h * 0.88); break
 
     case 'valbova': {
       const rx = Math.max(0.05, d / 2 - s / 2)
-      // Pozednice (všechny 4 strany)
       addBeam(group, mPoz, V3(-d/2, wH+0.06, -s/2), V3(d/2, wH+0.06, -s/2), 0.16, 0.12)
       addBeam(group, mPoz, V3(-d/2, wH+0.06,  s/2), V3(d/2, wH+0.06,  s/2), 0.16, 0.12)
       addBeam(group, mPoz, V3(-d/2, wH+0.06, -s/2), V3(-d/2, wH+0.06, s/2),  0.16, 0.12)
       addBeam(group, mPoz, V3( d/2, wH+0.06, -s/2), V3( d/2, wH+0.06, s/2),  0.16, 0.12)
-
       if (rx > 0.2) addBeam(group, mHreben, V3(-rx, wH+h, 0), V3(rx, wH+h, 0), 0.12, 0.10)
-
-      // Nárožní krokve
       ;[[-d/2,-s/2],[-d/2,s/2],[d/2,-s/2],[d/2,s/2]].forEach(([cx,cz]) => {
         const ridgeEnd = cx < 0 ? V3(-rx, wH+h, 0) : V3(rx, wH+h, 0)
         addBeam(group, mKrokev, V3(cx, wH+0.06, cz), ridgeEnd, 0.12, 0.18)
       })
-
-      // Středové krokve
       krokvePosX.filter(x => x > -rx && x < rx).forEach(x => {
         addBeam(group, mKrokev, V3(x, wH, -(s/2+po)), V3(x, wH+h, 0), 0.10, 0.16)
         addBeam(group, mKrokev, V3(x, wH,  s/2+po),   V3(x, wH+h, 0), 0.10, 0.16)
@@ -354,26 +475,20 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
       const lFrac = 0.40, lHw = s/2 * lFrac, lH = lHw * Math.tan(lSlope)
       const kneeZ = s/2 - lHw, kneeY = wH + lH
       const uH = (s/2 - lHw) * Math.tan(slRad)
-
       addBeam(group, mPoz, V3(-d/2, wH+0.06, -s/2), V3(d/2, wH+0.06, -s/2), 0.16, 0.12)
       addBeam(group, mPoz, V3(-d/2, wH+0.06,  s/2), V3(d/2, wH+0.06,  s/2), 0.16, 0.12)
-      // Pozednice kolena (upper)
       addBeam(group, mVaznice, V3(-d/2, kneeY, -kneeZ), V3(d/2, kneeY, -kneeZ), 0.14, 0.10)
       addBeam(group, mVaznice, V3(-d/2, kneeY,  kneeZ), V3(d/2, kneeY,  kneeZ), 0.14, 0.10)
       addBeam(group, mHreben, V3(-d/2, kneeY+uH, 0), V3(d/2, kneeY+uH, 0), 0.12, 0.10)
-
-      // Sloupky (knee wall posts) each other rafter
       krokvePosX.filter((_, i) => i % 2 === 0).forEach(x => {
         addBeam(group, mSloupek, V3(x, wH+0.12, -kneeZ), V3(x, kneeY, -kneeZ), 0.12, 0.12)
         addBeam(group, mSloupek, V3(x, wH+0.12,  kneeZ), V3(x, kneeY,  kneeZ), 0.12, 0.12)
       })
-
       krokvePosX.forEach(x => {
         addBeam(group, mKrokev, V3(x, wH, -(s/2+po)), V3(x, kneeY, -kneeZ), 0.10, 0.16)
         addBeam(group, mKrokev, V3(x, wH,  s/2+po),   V3(x, kneeY,  kneeZ), 0.10, 0.16)
         addBeam(group, mKrokev, V3(x, kneeY, -kneeZ), V3(x, kneeY+uH, 0),    0.10, 0.14)
         addBeam(group, mKrokev, V3(x, kneeY,  kneeZ), V3(x, kneeY+uH, 0),    0.10, 0.14)
-        // Kleštiny horní části
         const klY = kneeY + uH * 0.55
         addBeam(group, mKles, V3(x, klY, -kneeZ * 0.45), V3(x, klY, kneeZ * 0.45), 0.08, 0.12)
       })
@@ -396,42 +511,8 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
       break
     }
 
-    default:
-      buildSedlova()
+    default: buildSedlova()
   }
 
-  return group
-}
-
-// ─── Building ─────────────────────────────────────────────────────────────────
-export function buildBuilding(sirka, delka, wallHeight = 2.7) {
-  const s  = Math.max(parseFloat(sirka)  || 8,  2)
-  const d  = Math.max(parseFloat(delka)  || 12, 2)
-  const wH = Math.max(parseFloat(wallHeight) || 2.7, 1)
-  const group = new THREE.Group()
-
-  const walls = new THREE.Mesh(new THREE.BoxGeometry(d, wH, s), wallMaterial())
-  walls.position.y = wH / 2
-  walls.castShadow = true; walls.receiveShadow = true
-  group.add(walls)
-
-  const winMat  = new THREE.MeshStandardMaterial({ color: 0x5599cc, roughness: 0.05, metalness: 0.4, opacity: 0.85, transparent: true })
-  const fraMat  = new THREE.MeshStandardMaterial({ color: 0xfaf0e0, roughness: 0.8 })
-  const doorMat = new THREE.MeshStandardMaterial({ color: 0x4a2e10, roughness: 0.9 })
-
-  const fz = s / 2 + 0.01
-  const addWin = (x, y) => {
-    const w = new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.15, 0.04), winMat)
-    w.position.set(x, y, fz)
-    const f = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.35, 0.03), fraMat)
-    f.position.set(x, y, fz - 0.005)
-    group.add(w, f)
-  }
-  addWin(-d * 0.28, wH * 0.58)
-  addWin( d * 0.28, wH * 0.58)
-
-  const door = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.95, 0.05), doorMat)
-  door.position.set(0, 0.975, fz)
-  group.add(door)
   return group
 }
