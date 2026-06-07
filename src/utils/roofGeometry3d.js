@@ -189,10 +189,6 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
       const RB = [-hd, wH + h, 0], RF = [hd, wH + h, 0]
       // Hlavní svahy — BEZ štítových trojúhelníků (ty jsou ze zdiva níže)
       pos = [...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR)]
-      // Střešní přesah na štítu (tenká trojúhelníkový panel u okraje střechy)
-      if (ps > 0.01) {
-        group.add(meshFrom([...tri(BL, RB, BR), ...tri(FL, FR, RF)], mat))
-      }
       addGableWalls(0, h)
       break
     }
@@ -201,9 +197,6 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
       const shift = hw * 0.25, rH = h * 0.88
       const RB = [-hd, wH + rH, shift], RF = [hd, wH + rH, shift]
       pos = [...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR)]
-      if (ps > 0.01) {
-        group.add(meshFrom([...tri(BL, RB, BR), ...tri(FL, FR, RF)], mat))
-      }
       addGableWalls(hw * 0.25 * (s/2 / hw), rH * (s / 2 / hw))
       break
     }
@@ -237,10 +230,6 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
       // Štítové trojúhelníky — použij zdivo na vnitřní pozici
       group.add(meshFrom(tri([-d/2, wH, s/2], [-d/2, wH + hF, -s/2], [-d/2, wH, -s/2]), wMat))
       group.add(meshFrom(tri([d/2, wH, s/2], [d/2, wH, -s/2], [d/2, wH + hF, -s/2]), wMat))
-      // Střešní přesah na štítě
-      if (ps > 0.01) {
-        group.add(meshFrom([...tri(Lo1, Hi2, [-hd, wH, -hw]), ...tri(Lo2, [hd, wH, -hw], Hi1)], mat))
-      }
       break
     }
 
@@ -268,9 +257,6 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
       pos = [
         ...quad(IBL, IFL, RF, RB), ...quad(IBR, RB, RF, IFR),
       ]
-      if (ps > 0.01) {
-        group.add(meshFrom([...tri(IBL, RB, IBR), ...tri(IFL, IFR, RF)], mat))
-      }
       // Štítová zeď mansardy
       group.add(meshFrom(tri([-d/2, iY, iZn], [-d/2, iY, iZp], [-d/2, iY + uH, 0]), wMat))
       group.add(meshFrom(tri([d/2, iY, iZp], [d/2, iY, iZn], [d/2, iY + uH, 0]), wMat))
@@ -336,9 +322,6 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
     default: {
       const RB = [-hd, wH + h, 0], RF = [hd, wH + h, 0]
       pos = [...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR)]
-      if (ps > 0.01) {
-        group.add(meshFrom([...tri(BL, RB, BR), ...tri(FL, FR, RF)], mat))
-      }
       addGableWalls(0, h)
     }
   }
