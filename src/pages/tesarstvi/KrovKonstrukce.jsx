@@ -65,21 +65,19 @@ function pocitej({ sirka, delka, sklon, presahOkap, roztecKrokvi, typKrovu }) {
   const pr      = defaultPrurezKrokve(lKrokve)
   const nKrokvi = Math.ceil(d / roz) * 2
 
-  const hasVaznice  = typKrovu === 'vaznicova-stoj' || typKrovu === 'vaznicova-lez'
-  const hasHambalek = typKrovu === 'hambalkovy'
-
+  // Všechny typy krovu mají stejné prvky (shoduje se s 3D buildKrov).
+  // typKrovu ovlivňuje design a průřezy, ale ne to které prvky jsou.
   const lKlest  = s * 0.6
-  const nKlest  = hasHambalek ? Math.ceil(nKrokvi / 2) : 0
-  const nHreben = hasVaznice ? 1 : 0
-  const nStred  = hasVaznice ? 2 : 0
+  const nKlest  = Math.ceil(nKrokvi / 2)   // kleštiny = 1 na každý pár krokví
+  const nHreben = 1                          // vrcholová vaznice vždy 1 ks
+  const nStred  = 2                          // středové vaznice vždy 2 ks
 
-  // Vždy všech 5 prvků — pocet=0 pokud nejsou v tomto typu krovu
   const prvky = [
-    { prvek: 'Krokve',             b: pr.b, h: pr.h, delka: lKrokve, pocet: nKrokvi },
-    { prvek: 'Pozednice',          b: 120,  h: 120,  delka: d,       pocet: 2 },
-    { prvek: 'Vrcholová vaznice',  b: 140,  h: 200,  delka: d,       pocet: nHreben },
-    { prvek: 'Středová vaznice',   b: 120,  h: 180,  delka: d,       pocet: nStred },
-    { prvek: 'Kleštiny',           b: 60,   h: 160,  delka: lKlest,  pocet: nKlest },
+    { prvek: 'Krokve',            b: pr.b, h: pr.h, delka: lKrokve, pocet: nKrokvi },
+    { prvek: 'Pozednice',         b: 120,  h: 120,  delka: d,       pocet: 2 },
+    { prvek: 'Vrcholová vaznice', b: 140,  h: 200,  delka: d,       pocet: nHreben },
+    { prvek: 'Středová vaznice',  b: 120,  h: 180,  delka: d,       pocet: nStred },
+    { prvek: 'Kleštiny',          b: 60,   h: 160,  delka: lKlest,  pocet: nKlest },
   ]
 
   const spojmat = [
@@ -277,7 +275,6 @@ export default function KrovKonstrukce() {
         <CalcCard title="Výkaz výměr — přehled prvků">
           <p className="text-xs mb-3" style={{ color: '#94a3b8' }}>
             Průřez (šířka × výška) lze přepsat ručně — objem a cena se přepočítají automaticky.
-            Prvky s počtem 0 nejsou v aktuálním typu krovu použity.
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -291,13 +288,10 @@ export default function KrovKonstrukce() {
               </thead>
               <tbody>
                 {tableRows.map((row, i) => {
-                  const inactive = row.pocet === 0
-                  const rowBg = inactive ? '#f8fafc' : (i % 2 === 0 ? '#fff' : '#f8fafc')
                   return (
-                    <tr key={row.prvek} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0', opacity: inactive ? 0.45 : 1 }}>
+                    <tr key={row.prvek} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                       <td className="px-3 py-2.5 font-medium" style={{ color: '#0f172a' }}>
                         {row.prvek}
-                        {inactive && <span className="ml-1.5 text-xs font-normal" style={{ color: '#94a3b8' }}>(není v tomto typu)</span>}
                       </td>
                       <td className="px-3 py-2">
                         <PrurezInput
@@ -310,7 +304,7 @@ export default function KrovKonstrukce() {
                       <td className="px-3 py-2.5 font-mono text-xs" style={{ color: '#475569' }}>
                         {formatNum(row.m3, 3)}
                       </td>
-                      <td className="px-3 py-2.5 font-semibold" style={{ color: inactive ? '#94a3b8' : '#f97316' }}>
+                      <td className="px-3 py-2.5 font-semibold" style={{ color: '#f97316' }}>
                         {Math.round(row.kc).toLocaleString('cs-CZ')}
                       </td>
                     </tr>
@@ -345,7 +339,7 @@ export default function KrovKonstrukce() {
                 <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
                   style={{ background: '#f1f5f9', color: '#334155' }}>
                   <span>{polozka.name}:</span>
-                  <strong>{polozka.pocet} ks</strong>
+                  <strong>{polozka.pocet} Ks</strong>
                 </div>
               ))}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
