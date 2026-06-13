@@ -207,6 +207,72 @@ function drawPalenaTaska(hue = 14, sat = 65, light = 42) {
   return makeMat(cC, cH, { roughness: 0.87, baseRepeatX: 7.0, baseRepeatY: 4.5, normalStrength: 6 })
 }
 
+// ── 2b. PÁLENÁ DRSNATA (420×275 mm — plochá taška s drsným povrchem) ──────────
+// Reálné rozměry: 420×275 mm → aspect ratio 1.527 → canvas tW:tH = 79:52 ≈ 1.52
+function drawPalenaDrsnata() {
+  const [cC, ctx] = makeCanvas()
+  const [cH, hCtx] = makeCanvas()
+  const tW = 79, tH = 52, gap = 3
+
+  ctx.fillStyle = '#100604'; hCtx.fillStyle = '#111'
+  ctx.fillRect(0, 0, SZ, SZ); hCtx.fillRect(0, 0, SZ, SZ)
+
+  const rows = Math.ceil(SZ / tH) + 2
+  const cols = Math.ceil(SZ / tW) + 2
+  const nosekH = Math.round(tH * 0.20) // spodní přesah (nůsek)
+
+  for (let row = 0; row < rows; row++) {
+    const ox = (row % 2) * (tW / 2)
+    for (let col = -1; col < cols; col++) {
+      const x = col * tW - ox, y = row * tH
+
+      // Základní barva tašky — cihlová, lehká variace mezi kusy
+      ctx.fillStyle = hv(col, row, 14, 56, 40, 9)
+      ctx.fillRect(x + gap, y + gap, tW - gap*2, tH - gap*2)
+
+      // Drsný povrch — procedurální granule (drsnata = hrubý povrch)
+      for (let gx = 0; gx < tW - gap*2; gx += 3) {
+        for (let gy = 0; gy < tH - gap*2; gy += 3) {
+          const v = (Math.sin((x+gx)*2.3 + col*7.1 + (y+gy)*1.7 + row*4.3) * 0.5 + 0.5) * 0.10
+          ctx.fillStyle = `rgba(0,0,0,${v})`
+          ctx.fillRect(x + gap + gx, y + gap + gy, 2, 2)
+        }
+      }
+
+      // Interlocková drážka (pravá strana tašky)
+      ctx.fillStyle = 'rgba(0,0,0,0.22)'
+      ctx.fillRect(x + tW - gap - 7, y + gap, 7, tH - gap*2)
+      // Nůsek — přesah spodní hrany (tmavší stín)
+      ctx.fillStyle = 'rgba(0,0,0,0.55)'
+      ctx.fillRect(x + gap, y + tH - gap - nosekH, tW - gap*2, nosekH)
+      // Světlá horní hrana (odraz světla na vrchní ploše)
+      ctx.fillStyle = 'rgba(255,255,255,0.20)'
+      ctx.fillRect(x + gap, y + gap, tW - gap*2, 4)
+      // Levý světlý okraj (překrytí sousední taškou)
+      ctx.fillStyle = 'rgba(255,255,255,0.07)'
+      ctx.fillRect(x + gap, y + gap, 5, tH - gap*2)
+
+      // Height map — granule + nůsek pro normal map
+      hCtx.fillStyle = 'rgb(128,128,128)'
+      hCtx.fillRect(x + gap, y + gap, tW - gap*2, tH - gap*2)
+      for (let gx = 0; gx < tW - gap*2; gx += 3) {
+        for (let gy = 0; gy < tH - gap*2; gy += 3) {
+          const v = Math.round((Math.sin((x+gx)*2.3+col*7.1+(y+gy)*1.7+row*4.3) * 0.5+0.5) * 35)
+          hCtx.fillStyle = `rgb(${115+v},${115+v},${115+v})`
+          hCtx.fillRect(x + gap + gx, y + gap + gy, 2, 2)
+        }
+      }
+      hCtx.fillStyle = 'rgba(255,255,255,0.45)'
+      hCtx.fillRect(x + gap, y + gap, tW - gap*2, 3)
+      hCtx.fillStyle = 'rgba(0,0,0,0.80)'
+      hCtx.fillRect(x + gap, y + tH - gap - nosekH, tW - gap*2, nosekH)
+    }
+  }
+  // 275mm šířka → ~3.64 tiles/m; canvas: 512/79≈6.5 tiles → baseRepeatX = 3.64×10/6.5 ≈ 5.5
+  // 345mm výška (s přesahem) → ~2.9 rows/m; canvas: 512/52≈9.8 rows → baseRepeatY = 2.9×5/9.8 ≈ 1.5
+  return makeMat(cC, cH, { roughness: 0.93, baseRepeatX: 5.5, baseRepeatY: 1.5, normalStrength: 5 })
+}
+
 // ── 3. BETONOVÁ TAŠKA ─────────────────────────────────────────────────────────
 function drawBetonova() {
   const [cC, ctx] = makeCanvas()
@@ -727,7 +793,8 @@ export function buildKrytinaMateriál(krytina) {
       // baseRepeatX/Y = počet opakování textury na 10m délky / 5m svahu
       // s world-space UV: rX = baseRepeatX/10, rY = baseRepeatY/5 (tiles per metr)
       case 'bobrovka':                              return drawBobrovka()          // 8×10 tašek/textura
-      case 'palena_drsnata': case 'keramicka':      return drawPalenaTaska(13, 60, 38)
+      case 'palena_drsnata':                         return drawPalenaDrsnata()
+      case 'keramicka':                              return drawPalenaTaska(13, 60, 38)
       case 'palena_romana': case 'tondach_figaro':  return drawPalenaTaska(16, 65, 42)
       case 'palena_francouzska': case 'palena_stredomorska': return drawPalenaTaska(18, 58, 44)
       case 'betonova': case 'bramac_max':           return drawBetonova()

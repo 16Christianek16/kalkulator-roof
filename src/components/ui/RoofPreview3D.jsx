@@ -56,6 +56,7 @@ function addControls(camera, domEl, target = { x: 0, y: 3, z: 0 }) {
   return {
     setTarget(x, y, z) { target.x = x; target.y = y; target.z = z; sync() },
     setRadius(r) { radius = r; sync() },
+    getRadius() { return radius },
     getTheta() { return theta },
     setTheta(t) { theta = t; sync() },
     dispose() {
@@ -187,6 +188,15 @@ export default function RoofPreview3D({
           })
           setLabelPos(newPos)
         }
+
+        // LOD: při vzdálenosti > 35 m skryj drobné detailní meshe
+        if (frameCount % 30 === 0 && stateRef.current.controls) {
+          const r = stateRef.current.controls.getRadius()
+          const showDetail = r < 35
+          scene.traverse(obj => {
+            if (obj.userData?.lod === 'detail') obj.visible = showDetail
+          })
+        }
       }
       tick()
 
@@ -265,7 +275,7 @@ export default function RoofPreview3D({
     const slRad = sl * Math.PI / 180
     const h = (s / 2) * Math.tan(slRad)
 
-    const building = buildBuilding(s, d, wH)
+    const building = buildBuilding(s, d, wH, h)
     building.userData.building = true
 
     if (viewMode === 'krov') {
