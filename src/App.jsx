@@ -16,6 +16,7 @@ import Krokve from './pages/tesarstvi/Krokve'
 import Late from './pages/tesarstvi/Late'
 import Schody from './pages/tesarstvi/Schody'
 import Stropy from './pages/tesarstvi/Stropy'
+import KrovKonstrukce from './pages/tesarstvi/KrovKonstrukce'
 
 import DelkaKrokvi from './pages/geometrie/DelkaKrokvi'
 import SlozitoStrechy from './pages/geometrie/SlozitoStrechy'
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="tesarstvi/late" element={<Late />} />
           <Route path="tesarstvi/schody" element={<Schody />} />
           <Route path="tesarstvi/stropy" element={<Stropy />} />
+          <Route path="tesarstvi/krov-konstrukce" element={<KrovKonstrukce />} />
 
           <Route path="geometrie/delka-krokvi" element={<DelkaKrokvi />} />
           <Route path="geometrie/slozite-strechy" element={<SlozitoStrechy />} />

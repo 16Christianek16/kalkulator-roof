@@ -80,14 +80,14 @@ function project(pos3, camera, W, H) {
 
 export default function RoofPreview3D({
   typ, sirka, delka, sklon, presahOkap, presahStit, vyskaZdi,
-  krytina = 'bobrovka', roztecKrokvi = 900
+  krytina = 'bobrovka', roztecKrokvi = 900, defaultView = 'stecha'
 }) {
   const mountRef   = useRef(null)
   const stateRef   = useRef({})
   const colorRef   = useRef('#ffffff')
   const autoRotRef = useRef(null)
 
-  const [viewMode,   setViewMode]   = useState('stecha')
+  const [viewMode,   setViewMode]   = useState(defaultView)
   const [roofColor,  setRoofColor]  = useState('#ffffff')
   const [initError,  setInitError]  = useState(null)
   const [dims,       setDims]       = useState(null)   // {hrebenLen, sirka, vyska}

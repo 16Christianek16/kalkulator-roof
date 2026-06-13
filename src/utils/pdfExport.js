@@ -81,6 +81,109 @@ export function exportRoofPdf({ typ, sirka, delka, sklon, presahOkap, presahStit
   doc.save(`kalkulace-strechy-${typ}-${now.replace(/\./g, '-')}.pdf`)
 }
 
+export function exportKrovPdf({ sirka, delka, sklon, presahOkap, roztecKrokvi, typKrovu, drevina, trida, cenaReziva, res }) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const now = new Date().toLocaleDateString('cs-CZ')
+
+  // Hlavička
+  doc.setFillColor(15, 23, 42)
+  doc.rect(0, 0, 210, 28, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(16)
+  doc.setFont('helvetica', 'bold')
+  doc.text('CalkulatorRoof', 14, 12)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Krov & konstrukce střechy — Výkaz výměr', 14, 20)
+  doc.text(`Datum: ${now}`, 196, 20, { align: 'right' })
+
+  // Název
+  doc.setTextColor(15, 23, 42)
+  doc.setFontSize(13)
+  doc.setFont('helvetica', 'bold')
+  doc.text(`Typ krovu: ${typKrovu}`, 14, 42)
+
+  // Vstupní parametry
+  autoTable(doc, {
+    startY: 48,
+    head: [['Parametr', 'Hodnota', 'Jednotka']],
+    body: [
+      ['Šířka domu',      sirka || '—',      'm'],
+      ['Délka domu',      delka || '—',      'm'],
+      ['Sklon střechy',   sklon || '—',      '°'],
+      ['Přesah okapnice', presahOkap || '—', 'm'],
+      ['Rozteč krokví',   roztecKrokvi || '—', 'mm'],
+      ['Dřevina',         drevina,            '—'],
+      ['Pevnostní třída', trida,              '—'],
+      ['Cena řeziva',     cenaReziva,        'Kč/m³'],
+    ],
+    headStyles: { fillColor: [249, 115, 22], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+    bodyStyles: { fontSize: 9 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    margin: { left: 14, right: 14 },
+  })
+
+  // Výkaz výměr
+  const y2 = doc.lastAutoTable.finalY + 8
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(15, 23, 42)
+  doc.text('Výkaz výměr — přehled prvků', 14, y2)
+
+  autoTable(doc, {
+    startY: y2 + 4,
+    head: [['Prvek', 'Průřez', 'Délka (m)', 'Počet (ks)', 'Objem (m³)', 'Cena (Kč)']],
+    body: res.prvky.map(p => [
+      p.prvek,
+      p.prurez,
+      p.delka.toFixed ? p.delka.toFixed(2) : p.delka,
+      p.pocet,
+      p.m3.toFixed(3),
+      Math.round(p.kc).toLocaleString('cs-CZ'),
+    ]),
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+    bodyStyles: { fontSize: 9 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 5: { fontStyle: 'bold', textColor: [249, 115, 22] } },
+    margin: { left: 14, right: 14 },
+  })
+
+  // Cenový souhrn
+  const y3 = doc.lastAutoTable.finalY + 8
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(15, 23, 42)
+  doc.text('Cenový souhrn', 14, y3)
+
+  autoTable(doc, {
+    startY: y3 + 4,
+    head: [['Položka', 'Hodnota']],
+    body: [
+      ['Celkem řezivo (+ 12 % odpad)',   res.volTotal],
+      ['Cena řeziva',                     res.cenaRez],
+      ['Spojovací materiál (~ 8 %)',      res.cenaSpoj],
+      ['CELKEM bez DPH',                  res.bezDPH],
+      ['CELKEM s DPH 21 %',               res.sDPH],
+    ],
+    headStyles: { fillColor: [249, 115, 22], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+    bodyStyles: { fontSize: 9 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 1: { fontStyle: 'bold' } },
+    margin: { left: 14, right: 14 },
+  })
+
+  // Patička
+  const yPat = Math.max(doc.lastAutoTable.finalY + 8, 270)
+  doc.setFontSize(8)
+  doc.setTextColor(148, 163, 184)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Výpočet je orientační dle ČSN 73 1702. Nosné konstrukce vždy ověřte se statikem.', 14, yPat)
+  doc.text('Generováno aplikací CalkulatorRoof', 14, yPat + 5)
+  doc.text(now, 196, yPat + 5, { align: 'right' })
+
+  doc.save(`krov-kalkulace-${now.replace(/\./g, '-')}.pdf`)
+}
+
 export function exportZakazkaPdf(zakazka) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const now = new Date().toLocaleDateString('cs-CZ')

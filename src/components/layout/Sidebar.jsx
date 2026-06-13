@@ -22,6 +22,7 @@ const menu = [
       { label: 'Střešní latě', path: '/tesarstvi/late' },
       { label: 'Dřevěná schodiště', path: '/tesarstvi/schody' },
       { label: 'Stropy a podlahy', path: '/tesarstvi/stropy' },
+      { label: 'Krov & konstrukce', path: '/tesarstvi/krov-konstrukce' },
     ]
   },
   {
