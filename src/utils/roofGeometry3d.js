@@ -254,7 +254,7 @@ export function buildBuilding(sirka, delka, wallHeight = 2.7, ridgeHeight = 2.0)
   // ── Komín ────────────────────────────────────────────────────────────────────
   // Umístění: 28 % délky od středu, 12 % šířky (pod hřeben, viditelný z přední strany)
   const chimX = d * 0.28, chimZ = s * 0.12
-  const chimH = wH + ridgeHeight * 0.62 + 0.55 // vyčnívá 0.55 m nad střechou
+  const chimH = wH + ridgeHeight * 0.62 + 1.55 // vyčnívá 1.55 m nad střechou
   const chim = new THREE.Mesh(
     new THREE.BoxGeometry(0.40, chimH, 0.40),
     chimneyMaterial()
