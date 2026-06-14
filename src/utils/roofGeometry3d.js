@@ -618,23 +618,60 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
   const dRoz = d / nMez
   const krokvePosX = Array.from({ length: nMez + 1 }, (_, i) => -d / 2 + i * dRoz)
 
+  // ── Skutečné průřezy prvků (shodují se s kalkulátorem Krov & konstrukce) ───
+  const POZ_H = 0.12, POZ_W = 0.12  // Pozednice 120×120 mm
+  const HRE_H = 0.20, HRE_W = 0.14  // Vrcholová vaznice 140×200 mm
+  const STV_H = 0.18, STV_W = 0.12  // Středová vaznice 120×180 mm
+  const KRO_H = 0.18, KRO_W = 0.10  // Krokve 100×180 mm
+  const KLE_H = 0.16, KLE_W = 0.06  // Kleštiny 60×160 mm
+  const cosSlope = Math.cos(slRad)   // pro výpočet svislé složky tloušťky krokve
+
   const buildSedlova = (ridgeZ = 0, ridgeH = h, leftPo = po, rightPo = po) => {
-    addBeam(group, mPoz, V3(-d/2, wH + 0.06, -s/2), V3(d/2, wH + 0.06, -s/2), 0.16, 0.12)
-    addBeam(group, mPoz, V3(-d/2, wH + 0.06,  s/2), V3(d/2, wH + 0.06,  s/2), 0.16, 0.12)
-    addBeam(group, mHreben, V3(-d/2 - ps, wH + ridgeH, ridgeZ), V3(d/2 + ps, wH + ridgeH, ridgeZ), 0.12, 0.10)
+    // Polohy středů a vrchních ploch podpor
+    const pozCY  = wH + POZ_H / 2            // střed pozednice
+    const pozTop = wH + POZ_H                 // vrchní strana pozednice
+    const hreCY  = wH + ridgeH               // střed vrcholové vaznice
+    const hreTop = hreCY + HRE_H / 2         // vrchní strana vrcholové vaznice
 
-    if (ridgeH > 2.2) {
-      const vZ = (s / 2) * 0.55, vY = wH + ridgeH * 0.52
-      addBeam(group, mVaznice, V3(-d/2, vY, -vZ + ridgeZ * 0.5), V3(d/2, vY, -vZ + ridgeZ * 0.5), 0.14, 0.10)
-      addBeam(group, mVaznice, V3(-d/2, vY,  vZ + ridgeZ * 0.5), V3(d/2, vY,  vZ + ridgeZ * 0.5), 0.14, 0.10)
-    }
+    // Krokev: spodní líc leží na vrchní straně podpory.
+    // Svislá vzdálenost od středu krokve k jejímu spodnímu líci = (KRO_H/2) * cos(sklon)
+    const kroAdj    = (KRO_H / 2) * cosSlope
+    const kroStartY = pozTop + kroAdj         // střed krokve u pozednice
+    const kroEndY   = hreTop + kroAdj        // střed krokve u hřebenové vaznice
 
+    // Pozednice — 120×120 mm
+    addBeam(group, mPoz, V3(-d/2, pozCY, -s/2), V3(d/2, pozCY, -s/2), POZ_W, POZ_H)
+    addBeam(group, mPoz, V3(-d/2, pozCY,  s/2), V3(d/2, pozCY,  s/2), POZ_W, POZ_H)
+
+    // Vrcholová vaznice — 140×200 mm, střed na úrovni teoretického hřebene
+    addBeam(group, mHreben, V3(-d/2 - ps, hreCY, ridgeZ), V3(d/2 + ps, hreCY, ridgeZ), HRE_W, HRE_H)
+
+    // Středové vaznice — 120×180 mm, vždy 2 ks (symetricky ~52 % výšky hřebene)
+    const vZ = (s / 2) * 0.55
+    const vY = wH + ridgeH * 0.52
+    addBeam(group, mVaznice, V3(-d/2, vY, -(vZ - ridgeZ * 0.5)), V3(d/2, vY, -(vZ - ridgeZ * 0.5)), STV_W, STV_H)
+    addBeam(group, mVaznice, V3(-d/2, vY,   vZ + ridgeZ * 0.5 ), V3(d/2, vY,   vZ + ridgeZ * 0.5 ), STV_W, STV_H)
+
+    // Krokve — spodní líc na pozednici dole, na vrcholové vaznici nahoře
     krokvePosX.forEach(x => {
-      addBeam(group, mKrokev, V3(x, wH, -(s/2 + leftPo)),  V3(x, wH + ridgeH, ridgeZ), 0.10, 0.16)
-      addBeam(group, mKrokev, V3(x, wH,   s/2 + rightPo),  V3(x, wH + ridgeH, ridgeZ), 0.10, 0.16)
+      addBeam(group, mKrokev,
+        V3(x, kroStartY, -(s/2 + leftPo)),
+        V3(x, kroEndY,   ridgeZ),
+        KRO_W, KRO_H
+      )
+      addBeam(group, mKrokev,
+        V3(x, kroStartY, s/2 + rightPo),
+        V3(x, kroEndY,   ridgeZ),
+        KRO_W, KRO_H
+      )
+      // Kleštiny — 60×160 mm, přibity po stranách krokví (~62 % výšky hřebene)
       const klY = wH + ridgeH * 0.62
       const klZ = (s / 2) * 0.42 + Math.abs(ridgeZ) * 0.42
-      addBeam(group, mKles, V3(x, klY, -klZ + ridgeZ * 0.62), V3(x, klY, klZ + ridgeZ * 0.62), 0.08, 0.12)
+      addBeam(group, mKles,
+        V3(x, klY, -klZ + ridgeZ * 0.62),
+        V3(x, klY,  klZ + ridgeZ * 0.62),
+        KLE_W, KLE_H
+      )
     })
   }
 
@@ -644,46 +681,52 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
 
     case 'valbova': {
       const rx = Math.max(0.05, d / 2 - s / 2)
-      addBeam(group, mPoz, V3(-d/2, wH+0.06, -s/2), V3(d/2, wH+0.06, -s/2), 0.16, 0.12)
-      addBeam(group, mPoz, V3(-d/2, wH+0.06,  s/2), V3(d/2, wH+0.06,  s/2), 0.16, 0.12)
-      addBeam(group, mPoz, V3(-d/2, wH+0.06, -s/2), V3(-d/2, wH+0.06, s/2),  0.16, 0.12)
-      addBeam(group, mPoz, V3( d/2, wH+0.06, -s/2), V3( d/2, wH+0.06, s/2),  0.16, 0.12)
-      if (rx > 0.2) addBeam(group, mHreben, V3(-rx, wH+h, 0), V3(rx, wH+h, 0), 0.12, 0.10)
+      const pozCY = wH + POZ_H / 2
+      const hreTop = wH + h + HRE_H / 2
+      const kroAdj = (KRO_H / 2) * cosSlope
+      addBeam(group, mPoz, V3(-d/2, pozCY, -s/2), V3(d/2, pozCY, -s/2), POZ_W, POZ_H)
+      addBeam(group, mPoz, V3(-d/2, pozCY,  s/2), V3(d/2, pozCY,  s/2), POZ_W, POZ_H)
+      addBeam(group, mPoz, V3(-d/2, pozCY, -s/2), V3(-d/2, pozCY, s/2), POZ_W, POZ_H)
+      addBeam(group, mPoz, V3( d/2, pozCY, -s/2), V3( d/2, pozCY, s/2), POZ_W, POZ_H)
+      if (rx > 0.2) addBeam(group, mHreben, V3(-rx, wH+h, 0), V3(rx, wH+h, 0), HRE_W, HRE_H)
       ;[[-d/2,-s/2],[-d/2,s/2],[d/2,-s/2],[d/2,s/2]].forEach(([cx,cz]) => {
-        const ridgeEnd = cx < 0 ? V3(-rx, wH+h, 0) : V3(rx, wH+h, 0)
-        addBeam(group, mKrokev, V3(cx, wH+0.06, cz), ridgeEnd, 0.12, 0.18)
+        const ridgeEnd = cx < 0 ? V3(-rx, hreTop + kroAdj, 0) : V3(rx, hreTop + kroAdj, 0)
+        addBeam(group, mKrokev, V3(cx, pozCY + POZ_H/2 + kroAdj, cz), ridgeEnd, KRO_W, KRO_H)
       })
       krokvePosX.filter(x => x > -rx && x < rx).forEach(x => {
-        addBeam(group, mKrokev, V3(x, wH, -(s/2+po)), V3(x, wH+h, 0), 0.10, 0.16)
-        addBeam(group, mKrokev, V3(x, wH,  s/2+po),   V3(x, wH+h, 0), 0.10, 0.16)
+        addBeam(group, mKrokev, V3(x, pozCY + POZ_H/2 + kroAdj, -(s/2+po)), V3(x, hreTop + kroAdj, 0), KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, pozCY + POZ_H/2 + kroAdj,  s/2+po),  V3(x, hreTop + kroAdj, 0), KRO_W, KRO_H)
         const klY = wH + h * 0.62
-        addBeam(group, mKles, V3(x, klY, -(s/2)*0.42), V3(x, klY, (s/2)*0.42), 0.08, 0.12)
+        addBeam(group, mKles, V3(x, klY, -(s/2)*0.42), V3(x, klY, (s/2)*0.42), KLE_W, KLE_H)
       })
       break
     }
 
     case 'stanova': {
+      const pozCY = wH + POZ_H / 2
       const apex = V3(0, wH + h, 0)
+      addBeam(group, mPoz, V3(-d/2, pozCY, -s/2), V3(d/2, pozCY, -s/2), POZ_W, POZ_H)
+      addBeam(group, mPoz, V3(-d/2, pozCY,  s/2), V3(d/2, pozCY,  s/2), POZ_W, POZ_H)
+      addBeam(group, mPoz, V3(-d/2, pozCY, -s/2), V3(-d/2, pozCY, s/2), POZ_W, POZ_H)
+      addBeam(group, mPoz, V3( d/2, pozCY, -s/2), V3( d/2, pozCY, s/2), POZ_W, POZ_H)
       ;[[-d/2,-s/2],[-d/2,s/2],[d/2,-s/2],[d/2,s/2]].forEach(([cx,cz]) =>
-        addBeam(group, mKrokev, V3(cx, wH+0.06, cz), apex, 0.12, 0.18)
+        addBeam(group, mKrokev, V3(cx, pozCY + POZ_H/2, cz), apex, KRO_W, KRO_H)
       )
-      addBeam(group, mPoz, V3(-d/2,wH+0.06,-s/2), V3(d/2,wH+0.06,-s/2), 0.16, 0.12)
-      addBeam(group, mPoz, V3(-d/2,wH+0.06, s/2), V3(d/2,wH+0.06, s/2),  0.16, 0.12)
-      addBeam(group, mPoz, V3(-d/2,wH+0.06,-s/2), V3(-d/2,wH+0.06,s/2),  0.16, 0.12)
-      addBeam(group, mPoz, V3( d/2,wH+0.06,-s/2), V3( d/2,wH+0.06,s/2),  0.16, 0.12)
       krokvePosX.forEach(x => {
-        addBeam(group, mKrokev, V3(x, wH, -(s/2+po)), apex, 0.10, 0.16)
-        addBeam(group, mKrokev, V3(x, wH,  s/2+po),  apex, 0.10, 0.16)
+        addBeam(group, mKrokev, V3(x, pozCY + POZ_H/2, -(s/2+po)), apex, KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, pozCY + POZ_H/2,  s/2+po),   apex, KRO_W, KRO_H)
       })
       break
     }
 
     case 'pultova': {
       const hF = s * Math.tan(slRad)
-      addBeam(group, mPoz, V3(-d/2, wH+0.06, -(s/2+po)), V3(d/2, wH+0.06, -(s/2+po)), 0.16, 0.12)
-      addBeam(group, mPoz, V3(-d/2, wH+hF+0.06, s/2), V3(d/2, wH+hF+0.06, s/2), 0.16, 0.12)
+      const pozCY = wH + POZ_H / 2
+      const kroAdj = (KRO_H / 2) * cosSlope
+      addBeam(group, mPoz, V3(-d/2, pozCY, -(s/2+po)), V3(d/2, pozCY, -(s/2+po)), POZ_W, POZ_H)
+      addBeam(group, mPoz, V3(-d/2, wH+hF+POZ_H/2, s/2), V3(d/2, wH+hF+POZ_H/2, s/2), POZ_W, POZ_H)
       krokvePosX.forEach(x =>
-        addBeam(group, mKrokev, V3(x, wH, -(s/2+po)), V3(x, wH+hF, s/2), 0.10, 0.16)
+        addBeam(group, mKrokev, V3(x, wH+POZ_H+kroAdj, -(s/2+po)), V3(x, wH+hF+kroAdj, s/2), KRO_W, KRO_H)
       )
       break
     }
@@ -693,22 +736,27 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
       const lFrac = 0.40, lHw = s/2 * lFrac, lH = lHw * Math.tan(lSlope)
       const kneeZ = s/2 - lHw, kneeY = wH + lH
       const uH = (s/2 - lHw) * Math.tan(slRad)
-      addBeam(group, mPoz, V3(-d/2, wH+0.06, -s/2), V3(d/2, wH+0.06, -s/2), 0.16, 0.12)
-      addBeam(group, mPoz, V3(-d/2, wH+0.06,  s/2), V3(d/2, wH+0.06,  s/2), 0.16, 0.12)
-      addBeam(group, mVaznice, V3(-d/2, kneeY, -kneeZ), V3(d/2, kneeY, -kneeZ), 0.14, 0.10)
-      addBeam(group, mVaznice, V3(-d/2, kneeY,  kneeZ), V3(d/2, kneeY,  kneeZ), 0.14, 0.10)
-      addBeam(group, mHreben, V3(-d/2, kneeY+uH, 0), V3(d/2, kneeY+uH, 0), 0.12, 0.10)
+      const pozCY = wH + POZ_H / 2
+      addBeam(group, mPoz, V3(-d/2, pozCY, -s/2), V3(d/2, pozCY, -s/2), POZ_W, POZ_H)
+      addBeam(group, mPoz, V3(-d/2, pozCY,  s/2), V3(d/2, pozCY,  s/2), POZ_W, POZ_H)
+      addBeam(group, mVaznice, V3(-d/2, kneeY, -kneeZ), V3(d/2, kneeY, -kneeZ), STV_W, STV_H)
+      addBeam(group, mVaznice, V3(-d/2, kneeY,  kneeZ), V3(d/2, kneeY,  kneeZ), STV_W, STV_H)
+      addBeam(group, mHreben, V3(-d/2, kneeY+uH, 0), V3(d/2, kneeY+uH, 0), HRE_W, HRE_H)
+      const lCosSlope = Math.cos(Math.min(lSlope, Math.PI * 0.43))
+      const uCosSlope = cosSlope
       krokvePosX.filter((_, i) => i % 2 === 0).forEach(x => {
-        addBeam(group, mSloupek, V3(x, wH+0.12, -kneeZ), V3(x, kneeY, -kneeZ), 0.12, 0.12)
-        addBeam(group, mSloupek, V3(x, wH+0.12,  kneeZ), V3(x, kneeY,  kneeZ), 0.12, 0.12)
+        addBeam(group, mSloupek, V3(x, wH + POZ_H, -kneeZ), V3(x, kneeY, -kneeZ), 0.12, 0.12)
+        addBeam(group, mSloupek, V3(x, wH + POZ_H,  kneeZ), V3(x, kneeY,  kneeZ), 0.12, 0.12)
       })
       krokvePosX.forEach(x => {
-        addBeam(group, mKrokev, V3(x, wH, -(s/2+po)), V3(x, kneeY, -kneeZ), 0.10, 0.16)
-        addBeam(group, mKrokev, V3(x, wH,  s/2+po),   V3(x, kneeY,  kneeZ), 0.10, 0.16)
-        addBeam(group, mKrokev, V3(x, kneeY, -kneeZ), V3(x, kneeY+uH, 0),    0.10, 0.14)
-        addBeam(group, mKrokev, V3(x, kneeY,  kneeZ), V3(x, kneeY+uH, 0),    0.10, 0.14)
+        const lAdj = (KRO_H / 2) * lCosSlope
+        const uAdj = (KRO_H / 2) * uCosSlope
+        addBeam(group, mKrokev, V3(x, wH + POZ_H + lAdj, -(s/2+po)), V3(x, kneeY + lAdj, -kneeZ), KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, wH + POZ_H + lAdj,  s/2+po),   V3(x, kneeY + lAdj,  kneeZ), KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, kneeY + lAdj, -kneeZ), V3(x, kneeY + uH + uAdj, 0), KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, kneeY + lAdj,  kneeZ), V3(x, kneeY + uH + uAdj, 0), KRO_W, KRO_H)
         const klY = kneeY + uH * 0.55
-        addBeam(group, mKles, V3(x, klY, -kneeZ * 0.45), V3(x, klY, kneeZ * 0.45), 0.08, 0.12)
+        addBeam(group, mKles, V3(x, klY, -kneeZ * 0.45), V3(x, klY, kneeZ * 0.45), KLE_W, KLE_H)
       })
       break
     }
@@ -716,14 +764,15 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
     case 'pilova': {
       const N = Math.max(2, Math.round((d) / Math.max(s * 0.8, 1.5)))
       const segW = d / N, segH = s * Math.tan(slRad)
-      addBeam(group, mPoz, V3(-d/2,wH+0.06,-s/2), V3(d/2,wH+0.06,-s/2), 0.16, 0.12)
-      addBeam(group, mPoz, V3(-d/2,wH+0.06, s/2), V3(d/2,wH+0.06, s/2),  0.16, 0.12)
+      const pozCY = wH + POZ_H / 2
+      addBeam(group, mPoz, V3(-d/2, pozCY, -s/2), V3(d/2, pozCY, -s/2), POZ_W, POZ_H)
+      addBeam(group, mPoz, V3(-d/2, pozCY,  s/2), V3(d/2, pozCY,  s/2), POZ_W, POZ_H)
       for (let i = 0; i <= N; i++) {
         const x = -d/2 + i * segW
-        addBeam(group, mKrokev, V3(x, wH, s/2+po), V3(x, wH+segH, -s/2), 0.10, 0.16)
+        addBeam(group, mKrokev, V3(x, wH + POZ_H, s/2+po), V3(x, wH+segH, -s/2), KRO_W, KRO_H)
         if (i < N) {
-          addBeam(group, mHreben, V3(x, wH+segH, -s/2), V3(x, wH+segH, s/2), 0.08, 0.08)
-          addBeam(group, mVaznice, V3(x, wH+segH, -s/2), V3(x+segW, wH+segH, -s/2), 0.10, 0.10)
+          addBeam(group, mHreben, V3(x, wH+segH, -s/2), V3(x, wH+segH, s/2), HRE_W, HRE_H)
+          addBeam(group, mVaznice, V3(x, wH+segH, -s/2), V3(x+segW, wH+segH, -s/2), STV_W, STV_H)
         }
       }
       break
