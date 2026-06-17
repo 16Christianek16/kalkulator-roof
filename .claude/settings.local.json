@@ -15,7 +15,17 @@
       "PowerShell($env:PGPASSWORD = \"postgres\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d kalkulator_roof -c \"SELECT id, email, jmeno, role, predplatne FROM users;\")",
       "PowerShell($env:PGPASSWORD = \"postgres\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -d kalkulator_roof -c \"UPDATE users SET password_hash = '`$2a`$10`$mm5vIctKnIQ61if8630BnecI/nIsRB0WQCSwDhlG5XEykJ0ENt.1G' WHERE email = 'admin@kalkulator.cz';\")",
       "PowerShell([Environment]::GetFolderPath\\(\"Desktop\"\\))",
-      "PowerShell(Copy-Item \"C:\\\\Users\\\\marek\\\\SpustKalkulator.bat\" \"C:\\\\Users\\\\marek\\\\Desktop\\\\SpustKalkulator.bat\")"
+      "PowerShell(Copy-Item \"C:\\\\Users\\\\marek\\\\SpustKalkulator.bat\" \"C:\\\\Users\\\\marek\\\\Desktop\\\\SpustKalkulator.bat\")",
+      "PowerShell(winget install --id GitHub.cli -e --accept-source-agreements --accept-package-agreements)",
+      "PowerShell(Start-Sleep -Seconds 30; try { $r = Invoke-WebRequest -Uri \"https://kalkulator-roof-backend-production.up.railway.app/api/auth/login\" -Method POST -ContentType \"application/json\" -Body '{\"email\":\"admin@kalkulator-roof.cz\",\"heslo\":\"Admin1234!\"}' -TimeoutSec 20; $r.StatusCode; $r.Content } catch { $_.Exception.Message })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"https://kalkulator-roof-backend-production.up.railway.app/api/health\" -TimeoutSec 15; $r.Content } catch { $_.Exception.Message })",
+      "WebFetch(domain:gerardroofs.eu)",
+      "WebFetch(domain:calculator.ikometals.com)",
+      "Bash(npm install *)",
+      "Bash(mkdir -p \"C:\\\\Users\\\\marek\\\\CalkulatorRoof\\\\src\\\\i18n\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\marek\\CalkulatorRoof\\src"
     ]
   }
 }

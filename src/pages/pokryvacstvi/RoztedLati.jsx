@@ -48,7 +48,7 @@ export default function RoztedLati() {
       <PageHeader title="Rozteč latí" description="Výpočet rozteče střešních latí podle typu krytiny a sklonu" icon={Layers} />
       <SyncBanner label="Délka krokve a sklon sdíleny s půdorysem střechy" />
       {sklarovani && (
-        <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b' }}>
+        <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: '#dbeafe', color: '#1e40af', border: '1px solid #f59e0b' }}>
           Upozornění: Sklon střechy ({sklon}°) je pod minimálním doporučeným sklonem pro tuto krytinu ({k.minSklon}°).
         </div>
       )}

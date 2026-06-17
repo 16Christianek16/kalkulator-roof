@@ -5,7 +5,7 @@
 body {
   margin: 0;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background-color: #f1f5f9;
+  background-color: #ffffff;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -26,8 +26,8 @@ input, select, textarea { font-family: inherit; }
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .input-wrap:focus-within {
-  border-color: #f97316;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
   background: #fff;
 }
 
@@ -45,8 +45,8 @@ input, select, textarea { font-family: inherit; }
 }
 .select-field:focus {
   outline: none;
-  border-color: #f97316;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
   background: #fff;
 }
 
@@ -69,7 +69,7 @@ input, select, textarea { font-family: inherit; }
 }
 .nav-link.active {
   color: #fff;
-  background-color: rgba(249, 115, 22, 0.2);
+  background-color: rgba(37, 99, 235, 0.35);
   font-weight: 600;
 }
 
@@ -85,26 +85,18 @@ input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type=number] { -moz-appearance: textfield; }
 
+/* ── Layout background ───────────────────────────────── */
+.app-bg { background: #f8fafc; }
+
 /* ── Mobile optimizations ────────────────────────────── */
 @media (max-width: 640px) {
-  /* Larger touch targets */
   button, a { min-height: 40px; }
   .nav-link { min-height: 36px; padding: 0.5rem 0.625rem; }
-
-  /* Input fields */
-  .input-wrap input { font-size: 1rem; /* prevents zoom on iOS */ }
+  .input-wrap input { font-size: 1rem; }
   .select-field { font-size: 1rem; }
-
-  /* Page padding */
   main { padding: 1rem !important; }
-
-  /* Cards */
   .calc-card { padding: 1rem !important; border-radius: 1rem !important; }
-
-  /* Result cards - stacked on mobile */
   .result-grid { grid-template-columns: 1fr 1fr !important; }
-
-  /* Typography */
   h1, h2 { font-size: 1.25rem !important; }
 }
 

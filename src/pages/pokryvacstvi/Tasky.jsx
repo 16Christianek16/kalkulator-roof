@@ -69,7 +69,7 @@ export default function Tasky() {
       <PageHeader title="Spotřeba krytiny" description="Výpočet počtu tašek nebo plochy střešní krytiny" icon={Layers} />
       <SyncBanner label="Plocha střechy počítána z půdorysu střechy" />
       {sklarovani && (
-        <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b' }}>
+        <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: '#dbeafe', color: '#1e40af', border: '1px solid #f59e0b' }}>
           Upozornění: Sklon střechy ({sklon}°) je pod minimálním doporučeným sklonem pro tuto krytinu ({k.minSklon}°).
         </div>
       )}
@@ -116,7 +116,7 @@ export default function Tasky() {
                   <span className="text-xs" style={{ color: '#64748b' }}>Min. sklon: {k.minSklon}° · Hmotnost: {k.vaha} kg/m²</span>
                   {k.poznamka && <span className="text-xs" style={{ color: '#94a3b8' }}>{k.poznamka}</span>}
                   {k.url && (
-                    <a href={k.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium" style={{ color: '#f97316' }}>
+                    <a href={k.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium" style={{ color: '#2563eb' }}>
                       Detail na satjam.cz →
                     </a>
                   )}
@@ -134,7 +134,7 @@ export default function Tasky() {
                 <ResultCard label="Orientační hmotnost" value={res.vaha} unit="kg" />
               </div>
               {res.poznamka && (
-                <p className="text-xs mt-1" style={{ color: '#a07850' }}>{res.poznamka}</p>
+                <p className="text-xs mt-1" style={{ color: '#64748b' }}>{res.poznamka}</p>
               )}
             </div>
           ) : (

@@ -352,7 +352,7 @@ export default function KrovKonstrukce() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs px-3 py-2 rounded-lg" style={{ background: '#fff7ed', color: '#92400e' }}>
+            <div className="flex items-center justify-between text-xs px-3 py-2 rounded-lg" style={{ background: '#eff6ff', color: '#1e40af' }}>
               <span>Výška hřebene:</span>
               <strong>{formatNum(vyskaHrebene(parseFloat(sirka) || 8, parseFloat(sklon) || 35))} m</strong>
             </div>
@@ -363,12 +363,12 @@ export default function KrovKonstrukce() {
         <div className="flex flex-col gap-4">
           <CalcCard title="Navržený průřez krokve">
             <div className="flex items-baseline gap-3 mb-1">
-              <span className="text-2xl font-bold" style={{ color: '#3b2008' }}>
+              <span className="text-2xl font-bold" style={{ color: '#0f172a' }}>
                 {(() => { const r = tableRows[0]; return `${r.b} × ${r.h} mm` })()}
               </span>
-              <span className="text-sm" style={{ color: '#a07850' }}>délka krokve: {base.lKrokve} m</span>
+              <span className="text-sm" style={{ color: '#64748b' }}>délka krokve: {base.lKrokve} m</span>
             </div>
-            <p className="text-xs mt-1" style={{ color: '#a07850' }}>
+            <p className="text-xs mt-1" style={{ color: '#64748b' }}>
               Počet krokví: <strong>{base.nKrokvi} ks</strong> · {TYPY_KROVU.find(t => t.value === typKrovu)?.label}
             </p>
           </CalcCard>
@@ -399,7 +399,7 @@ export default function KrovKonstrukce() {
             </button>
             <button onClick={handleAddToOffer}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold flex-1 justify-center transition-colors"
-              style={{ background: addedMsg ? '#15803d' : '#f97316', color: '#fff' }}>
+              style={{ background: addedMsg ? '#15803d' : '#2563eb', color: '#fff' }}>
               <PlusCircle size={15} /> {addedMsg ? '✓ Přidáno!' : 'Přidat do nabídky'}
             </button>
           </div>
@@ -440,24 +440,24 @@ export default function KrovKonstrukce() {
                       <td className="px-3 py-2.5 font-mono text-xs" style={{ color: '#475569' }}>
                         {formatNum(row.m3, 3)}
                       </td>
-                      <td className="px-3 py-2.5 font-semibold" style={{ color: '#f97316' }}>
+                      <td className="px-3 py-2.5 font-semibold" style={{ color: '#2563eb' }}>
                         {Math.round(row.kc).toLocaleString('cs-CZ')}
                       </td>
                     </tr>
                   )
                 })}
                 {/* Součtový řádek */}
-                <tr style={{ background: '#fff7ed', borderTop: '2px solid #fed7aa' }}>
-                  <td className="px-3 py-2 text-xs font-semibold" style={{ color: '#92400e' }} colSpan={3}>
+                <tr style={{ background: '#eff6ff', borderTop: '2px solid #bfdbfe' }}>
+                  <td className="px-3 py-2 text-xs font-semibold" style={{ color: '#1e40af' }} colSpan={3}>
                     Celkem + 12 % přídavek na odpad a řezy
                   </td>
-                  <td className="px-3 py-2 text-xs font-semibold" style={{ color: '#92400e' }}>
+                  <td className="px-3 py-2 text-xs font-semibold" style={{ color: '#1e40af' }}>
                     {tableRows.reduce((s, r) => s + r.pocet, 0)} ks
                   </td>
-                  <td className="px-3 py-2 text-xs font-semibold" style={{ color: '#92400e' }}>
+                  <td className="px-3 py-2 text-xs font-semibold" style={{ color: '#1e40af' }}>
                     {totals.volTotal}
                   </td>
-                  <td className="px-3 py-2 text-xs font-semibold" style={{ color: '#f97316' }}>
+                  <td className="px-3 py-2 text-xs font-semibold" style={{ color: '#2563eb' }}>
                     {totals.cenaRez}
                   </td>
                 </tr>
@@ -484,7 +484,7 @@ export default function KrovKonstrukce() {
                 </div>
               ))}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
-                style={{ background: '#fff7ed', color: '#92400e' }}>
+                style={{ background: '#eff6ff', color: '#1e40af' }}>
                 <span>Orientační cena:</span>
                 <strong>{totals.cenaSpoj}</strong>
               </div>
@@ -505,7 +505,7 @@ export default function KrovKonstrukce() {
             <button onClick={() => setShow3d(v => !v)}
               className="px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
               style={show3d
-                ? { background: '#f97316', color: '#fff' }
+                ? { background: '#2563eb', color: '#fff' }
                 : { background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>
               {show3d ? '▲ Skrýt' : '▼ Zobrazit 3D'}
             </button>

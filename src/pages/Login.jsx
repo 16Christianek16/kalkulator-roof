@@ -31,7 +31,7 @@ export default function Login() {
         style={{ background: 'linear-gradient(160deg, #0f172a 0%, #1e293b 100%)' }}>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
+            style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
             <span className="text-white text-sm font-black">CR</span>
           </div>
           <span className="text-white font-bold text-lg">CalkulatorRoof</span>
@@ -42,8 +42,8 @@ export default function Login() {
             {['Komplexní výpočty pro střechy', 'Automatická kalkulace zakázek', 'Generování nabídek a faktur'].map(t => (
               <div key={t} className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: 'rgba(249,115,22,0.2)' }}>
-                  <div className="w-2 h-2 rounded-full" style={{ background: '#f97316' }} />
+                  style={{ background: 'rgba(37,99,235,0.2)' }}>
+                  <div className="w-2 h-2 rounded-full" style={{ background: '#2563eb' }} />
                 </div>
                 <span className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>{t}</span>
               </div>
@@ -61,7 +61,7 @@ export default function Login() {
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-6 lg:hidden">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
+                style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
                 <span className="text-white text-xs font-black">CR</span>
               </div>
               <span className="font-bold text-base" style={{ color: '#0f172a' }}>CalkulatorRoof</span>
@@ -104,14 +104,14 @@ export default function Login() {
 
             <button type="submit" disabled={loading}
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', boxShadow: '0 4px 12px rgba(249,115,22,0.3)' }}>
+              style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', boxShadow: '0 4px 12px rgba(37,99,235,0.3)' }}>
               {loading ? 'Přihlašuji…' : 'Přihlásit se'}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm" style={{ color: '#64748b' }}>
             Nemáte účet?{' '}
-            <Link to="/registrace" className="font-semibold hover:underline" style={{ color: '#f97316' }}>
+            <Link to="/registrace" className="font-semibold hover:underline" style={{ color: '#2563eb' }}>
               Registrovat se (20 €/měs.)
             </Link>
           </p>

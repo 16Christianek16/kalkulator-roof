@@ -421,7 +421,7 @@ export default function RoofPreview3D({
         style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
         <button onClick={() => setViewMode('stecha')}
           className="px-3 py-1.5 text-xs font-semibold"
-          style={{ background: viewMode === 'stecha' ? '#f97316' : 'rgba(15,23,42,0.75)', color: '#fff' }}>
+          style={{ background: viewMode === 'stecha' ? '#2563eb' : 'rgba(15,23,42,0.75)', color: '#fff' }}>
           🏠 Střecha
         </button>
         <button onClick={() => setViewMode('krov')}
@@ -460,7 +460,7 @@ export default function RoofPreview3D({
         </button>
         <button onClick={() => setShowLabels(v => !v)}
           className="px-2.5 py-1.5 rounded-lg text-xs font-semibold"
-          style={{ background: showLabels ? 'rgba(249,115,22,0.85)' : 'rgba(15,23,42,0.72)', color: '#fff' }}
+          style={{ background: showLabels ? 'rgba(37,99,235,0.85)' : 'rgba(15,23,42,0.72)', color: '#fff' }}
           title="Zobrazit/skrýt rozměry">
           📐
         </button>

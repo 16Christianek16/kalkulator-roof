@@ -816,8 +816,8 @@ export default function Pudorys() {
                     <button key={rt.id} onClick={() => setTyp(rt.id)}
                       className="py-2 px-2 rounded-lg text-xs font-medium transition-colors border text-left"
                       style={typ === rt.id
-                        ? { background: '#3b2008', color: '#fff', borderColor: '#3b2008' }
-                        : { background: '#fffaf4', color: '#7a5030', borderColor: '#d4b896' }}>
+                        ? { background: '#0f172a', color: '#fff', borderColor: '#0f172a' }
+                        : { background: '#fffaf4', color: '#334155', borderColor: '#bfdbfe' }}>
                       {t(`roof.${rt.id}`)}
                     </button>
                   ))}
@@ -841,14 +841,14 @@ export default function Pudorys() {
               <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={handleCsvImport} />
               <button onClick={() => csvRef.current.click()}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors flex-1"
-                style={{ borderColor: '#d4b896', color: '#7a5030', background: '#fffaf4' }}
+                style={{ borderColor: '#bfdbfe', color: '#334155', background: '#fffaf4' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#f5e0b0'}
                 onMouseLeave={e => e.currentTarget.style.background = '#fffaf4'}>
                 <Upload size={13} />{t('common.importCsv')}
               </button>
               <button onClick={handleExportPdf}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors flex-1"
-                style={{ borderColor: '#d4b896', color: '#7a5030', background: '#fffaf4' }}
+                style={{ borderColor: '#bfdbfe', color: '#334155', background: '#fffaf4' }}
                 onMouseEnter={e => e.currentTarget.style.background = '#f5e0b0'}
                 onMouseLeave={e => e.currentTarget.style.background = '#fffaf4'}>
                 <FileDown size={13} />{t('common.exportPdf')}
@@ -873,7 +873,7 @@ export default function Pudorys() {
                 </button>
                 <button onClick={() => setView3d(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors"
-                  style={view3d ? { background: '#f97316', color: '#fff' } : { background: '#f8fafc', color: '#64748b' }}>
+                  style={view3d ? { background: '#2563eb', color: '#fff' } : { background: '#f8fafc', color: '#64748b' }}>
                   <Box size={13} /> 3D
                 </button>
               </div>
@@ -968,7 +968,7 @@ export default function Pudorys() {
             <ResultCard label={t('roof.pocetKrokvi')}   value={res.n}         unit="ks" highlight />
             <ResultCard label={t('roof.skutecnaRozted')} value={res.skutRoz}  unit="mm" />
           </div>
-          <p className="mt-3 text-xs" style={{ color: '#a07850' }}>
+          <p className="mt-3 text-xs" style={{ color: '#64748b' }}>
             Parametry jsou sdíleny se všemi výpočetními sekcemi. Změna zde se projeví v{' '}
             <Link to="/strechy/pohled" className="underline">pohledu střechy</Link>,{' '}
             <Link to="/tesarstvi/krokve" className="underline">dimenzování krokví</Link>,{' '}

@@ -51,7 +51,7 @@ function PohledSVG({ typ, sirka, sklon, presahOkap, vyskaZdi }) {
   const [gLx, gLy] = sc(wallLx, 0)
   const [gRx, gRy] = sc(wallRx, 0)
 
-  const dimColor = '#7a5030'
+  const dimColor = '#334155'
   const AS = 6
   const arw = (x, y, dir) => {
     if (dir === 'l') return `M${x},${y} l${AS},${-AS/2} l0,${AS}Z`
@@ -65,8 +65,8 @@ function PohledSVG({ typ, sirka, sklon, presahOkap, vyskaZdi }) {
       <rect x={ML} y={MT} width={SVG_W-ML-MR} height={groundY-MT} fill="#fdf6e3" />
 
       {/* Stěny */}
-      <rect x={wLx-4} y={wLy} width={8} height={gLy-wLy} fill="#c4a07a" stroke="#92400e" strokeWidth={1} />
-      <rect x={wRx-4} y={wRy} width={8} height={gRy-wRy} fill="#c4a07a" stroke="#92400e" strokeWidth={1} />
+      <rect x={wLx-4} y={wLy} width={8} height={gLy-wLy} fill="#c4a07a" stroke="#1e40af" strokeWidth={1} />
+      <rect x={wRx-4} y={wRy} width={8} height={gRy-wRy} fill="#c4a07a" stroke="#1e40af" strokeWidth={1} />
 
       {/* Zem */}
       <rect x={ML-20} y={groundY} width={SVG_W-ML-MR+40} height={SVG_H-groundY} fill="#b8966a" opacity={0.6} />
@@ -82,8 +82,8 @@ function PohledSVG({ typ, sirka, sklon, presahOkap, vyskaZdi }) {
 
       {/* Přesahy — čárkovaně */}
       {po > 0 && <>
-        <line x1={wLx} y1={wLy} x2={eLx} y2={eLy} stroke="#92400e" strokeWidth={1} strokeDasharray="4 3" strokeOpacity={0.5} />
-        <line x1={wRx} y1={wRy} x2={eRx} y2={eRy} stroke="#92400e" strokeWidth={1} strokeDasharray="4 3" strokeOpacity={0.5} />
+        <line x1={wLx} y1={wLy} x2={eLx} y2={eLy} stroke="#1e40af" strokeWidth={1} strokeDasharray="4 3" strokeOpacity={0.5} />
+        <line x1={wRx} y1={wRy} x2={eRx} y2={eRy} stroke="#1e40af" strokeWidth={1} strokeDasharray="4 3" strokeOpacity={0.5} />
       </>}
 
       {/* Kóta: výška zdiva */}
@@ -198,14 +198,14 @@ export default function Pohled() {
         <CalcCard title="Parametry střechy">
           <div className="flex flex-col gap-4">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide block mb-2" style={{ color: '#7a5030' }}>Typ</label>
+              <label className="text-xs font-semibold uppercase tracking-wide block mb-2" style={{ color: '#334155' }}>Typ</label>
               <div className="grid grid-cols-2 gap-2">
                 {[{ id: 'sedlova', label: 'Sedlová' }, { id: 'pultova', label: 'Pultová' }].map(t => (
                   <button key={t.id} onClick={() => setTyp(t.id)}
                     className="py-2 px-3 rounded-lg text-sm font-medium transition-colors border"
                     style={typ === t.id
-                      ? { background: '#3b2008', color: '#fff', borderColor: '#3b2008' }
-                      : { background: '#fffaf4', color: '#7a5030', borderColor: '#d4b896' }}>
+                      ? { background: '#0f172a', color: '#fff', borderColor: '#0f172a' }
+                      : { background: '#fffaf4', color: '#334155', borderColor: '#bfdbfe' }}>
                     {t.label}
                   </button>
                 ))}

@@ -28,7 +28,7 @@ export default class Preview3DErrorBoundary extends Component {
           <button
             onClick={() => this.setState({ hasError: false, errorMsg: '' })}
             className="px-4 py-1.5 rounded-lg text-xs font-medium"
-            style={{ background: '#f97316', color: '#fff' }}>
+            style={{ background: '#2563eb', color: '#fff' }}>
             Zkusit znovu
           </button>
         </div>

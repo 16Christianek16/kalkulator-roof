@@ -56,7 +56,7 @@ function ZakazkaCard({ zakazka, onDelete, onDoklad }) {
           </button>
           <button onClick={e => { e.stopPropagation(); onDoklad(zakazka.id, 'faktura') }}
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors text-white"
-            style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+            style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}
             title="Faktura">
             <Receipt size={13} /> Faktura
           </button>
@@ -131,7 +131,7 @@ function ZakazkaCard({ zakazka, onDelete, onDoklad }) {
           </button>
           <button onClick={() => onDoklad(zakazka.id, 'faktura')}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
+            style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
             <Receipt size={14} /> Vytvořit fakturu
           </button>
           <button onClick={() => exportZakazkaPdf({
@@ -179,11 +179,11 @@ export default function Zakazka() {
       <div className="flex items-center justify-between mb-5">
         <p className="text-sm" style={{ color: '#64748b' }}>
           Zakázky se vytvářejí automaticky při změně parametrů v{' '}
-          <Link to="/strechy/pudorys" className="font-semibold hover:underline" style={{ color: '#f97316' }}>sekci Půdorys</Link>.
+          <Link to="/strechy/pudorys" className="font-semibold hover:underline" style={{ color: '#2563eb' }}>sekci Půdorys</Link>.
         </p>
         <button onClick={() => setShowModal(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
+          style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
           <BookOpen size={15} /> Nová zakázka
         </button>
       </div>
@@ -197,7 +197,7 @@ export default function Zakazka() {
           </p>
           <Link to="/strechy/pudorys"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-            style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
+            style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
             Přejít na Půdorys <ArrowRight size={15} />
           </Link>
         </div>

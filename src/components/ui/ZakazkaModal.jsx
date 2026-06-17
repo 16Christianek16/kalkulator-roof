@@ -72,7 +72,7 @@ export default function ZakazkaModal({ params, onClose }) {
           style={{ borderBottom: '1px solid #f1f5f9' }}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
+              style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
               <FileText size={15} className="text-white" />
             </div>
             <span className="font-bold text-base" style={{ color: '#0f172a' }}>Uložit jako zakázku</span>
@@ -148,7 +148,7 @@ export default function ZakazkaModal({ params, onClose }) {
           </button>
           <button onClick={handleCreate} disabled={!nazev.trim()}
             className="flex-[2] py-2.5 px-4 rounded-xl text-sm font-bold text-white transition-opacity disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', boxShadow: '0 4px 12px rgba(249,115,22,0.25)' }}>
+            style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
             Vytvořit zakázku →
           </button>
         </div>

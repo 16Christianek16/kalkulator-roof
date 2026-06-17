@@ -65,8 +65,8 @@ export default function Krokve() {
             </div>
           </CalcCard>
           <CalcCard title="Navržený průřez krokve">
-            <p className="text-2xl font-bold" style={{ color: '#3b2008' }}>{res.prurez}</p>
-            <p className="text-xs mt-2" style={{ color: '#a07850' }}>Orientační výpočet — nosné konstrukce ověřte se statikem.</p>
+            <p className="text-2xl font-bold" style={{ color: '#0f172a' }}>{res.prurez}</p>
+            <p className="text-xs mt-2" style={{ color: '#64748b' }}>Orientační výpočet — nosné konstrukce ověřte se statikem.</p>
           </CalcCard>
         </div>
       </div>

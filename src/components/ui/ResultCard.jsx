@@ -2,8 +2,8 @@ export default function ResultCard({ label, value, unit, highlight, note }) {
   if (highlight) {
     return (
       <div className="rounded-xl p-4"
-        style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', boxShadow: '0 4px 12px rgba(249,115,22,0.25)' }}>
-        <p className="text-xs font-medium uppercase tracking-wide mb-1.5" style={{ color: 'rgba(255,255,255,0.75)' }}>{label}</p>
+        style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)', boxShadow: '0 4px 12px rgba(37,99,235,0.28)' }}>
+        <p className="text-xs font-medium uppercase tracking-wide mb-1.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{label}</p>
         <div className="flex items-end gap-1.5">
           <span className="text-2xl font-bold text-white leading-none">{value}</span>
           {unit && <span className="text-sm mb-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{unit}</span>}
