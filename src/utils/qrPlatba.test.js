@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ucetNaIBAN, vytvorSPAYD, vsZCislaFaktury, generujQRSvg } from './qrPlatba'
+import { ucetNaIBAN, vytvorSPAYD, vsZCislaFaktury } from './qrPlatba'
 
 describe('ucetNaIBAN', () => {
   it('převede formát číslo/kód na IBAN (bez předčíslí)', () => {
@@ -76,20 +76,6 @@ describe('vytvorSPAYD', () => {
   it('SPAYD odděluje položky hvězdičkou', () => {
     const spayd = vytvorSPAYD({ iban, castka: 100, vs: '001' })
     expect(spayd.split('*').length).toBeGreaterThanOrEqual(5)
-  })
-})
-
-describe('generujQRSvg', () => {
-  it('vrátí SVG string pro validní SPAYD', async () => {
-    const spayd = 'SPD*1.0*ACC:CZ6508000000192000145399*AM:1000.00*CC:CZK'
-    const svg = await generujQRSvg(spayd)
-    expect(svg).toBeTruthy()
-    expect(svg).toContain('<svg')
-    expect(svg).toContain('</svg>')
-  })
-  it('vrátí null pro null vstup', async () => {
-    expect(await generujQRSvg(null)).toBeNull()
-    expect(await generujQRSvg('')).toBeNull()
   })
 })
 

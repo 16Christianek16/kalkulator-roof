@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { FileText, Plus, Trash2, Printer, Save, ArrowLeft, X } from 'lucide-react'
+import QRCodeSVG from 'react-qr-code'
 import PageHeader from '../../components/ui/PageHeader'
 import CalcCard from '../../components/ui/CalcCard'
 import { useAppStore } from '../../store/appStore'
 import { formatNum } from '../../utils/calculations'
-import { ucetNaIBAN, vytvorSPAYD, generujQRSvg, vsZCislaFaktury } from '../../utils/qrPlatba'
+import { ucetNaIBAN, vytvorSPAYD, vsZCislaFaktury } from '../../utils/qrPlatba'
 
 // --- helpers ---
 
@@ -125,7 +126,6 @@ export default function Faktura() {
   const { zakazky, doklady, dodavatel: storedDodavatel, addDoklad, updateDoklad, deleteDoklad, saveDodavatel } = useAppStore()
 
   const [doc, setDoc] = useState(null)
-  const [qrSvg, setQrSvg] = useState(null)
 
   useEffect(() => {
     const state = location.state
@@ -144,7 +144,7 @@ export default function Faktura() {
   const dphCast    = platceDph ? bezDph * (doc?.sazbaDP ?? 0) / 100 : 0
   const celkemSDph = bezDph + dphCast
 
-  // ── SPAYD pro QR — MUSÍ být před early return (Rules of Hooks) ──────────────
+  // ── SPAYD pro QR — computed synchronně, žádný async state ──────────────────
   const spaydStr = useMemo(() => {
     if (!doc || doc.typ !== 'faktura' || celkemSDph <= 0) return null
     const iban = ucetNaIBAN(doc.dodavatel?.ucet || '')
@@ -156,13 +156,6 @@ export default function Faktura() {
       msg: `Faktura ${doc.cislo}`,
     })
   }, [celkemSDph, doc?.dodavatel?.ucet, doc?.cislo, doc?.typ, doc])
-
-  useEffect(() => {
-    if (!spaydStr) { setQrSvg(null); return }
-    let stale = false
-    generujQRSvg(spaydStr).then(svg => { if (!stale) setQrSvg(svg) })
-    return () => { stale = true }
-  }, [spaydStr])
 
   const setField = (path, value) => {
     setDoc(d => {
@@ -501,24 +494,22 @@ export default function Faktura() {
           </div>
         )}
 
-        {/* QR Platba — jen pro faktury s účtem a nenulovou částkou */}
-        {doc.typ === 'faktura' && qrSvg && (
+        {/* QR Platba — react-qr-code, čistě SVG, žádný canvas ani async */}
+        {spaydStr && (
           <div className="mt-6 pt-4 flex items-start gap-6" style={{ borderTop: '1px solid #f0dfc0' }}>
             <div>
               <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#7a5030' }}>
                 QR Platba
               </div>
-              {/* Inline SVG — funguje v tisku i na obrazovce bez canvasu */}
-              <div
-                dangerouslySetInnerHTML={{ __html: qrSvg }}
-                style={{ width: 130, height: 130, border: '1px solid #e0d0c0', borderRadius: 4, padding: 4, background: '#fff' }}
-              />
+              <div style={{ padding: 6, background: '#fff', border: '1px solid #e0d0c0', borderRadius: 4, display: 'inline-block' }}>
+                <QRCodeSVG value={spaydStr} size={120} level="M" />
+              </div>
             </div>
             <div className="text-xs" style={{ color: '#7a5030', paddingTop: 24 }}>
               <p className="font-semibold mb-1" style={{ color: '#3b2008' }}>Platba převodem</p>
               <p>Naskenujte QR kód v mobilní aplikaci banky.</p>
               <p className="mt-1">Formát: <span className="font-mono text-xs">SPAYD</span> (standard ČBA).</p>
-              {ucetNaIBAN(doc.dodavatel.ucet) && (
+              {ucetNaIBAN(doc.dodavatel?.ucet) && (
                 <p className="mt-1.5 font-mono" style={{ color: '#94a3b8', wordBreak: 'break-all', fontSize: 10 }}>
                   {ucetNaIBAN(doc.dodavatel.ucet)}
                 </p>
@@ -526,12 +517,12 @@ export default function Faktura() {
             </div>
           </div>
         )}
-        {doc.typ === 'faktura' && spaydStr === null && doc.dodavatel.ucet && celkemSDph > 0 && (
+        {doc.typ === 'faktura' && !spaydStr && doc.dodavatel?.ucet && celkemSDph > 0 && (
           <p className="mt-4 text-xs print:hidden" style={{ color: '#f97316' }}>
-            QR platba: zkontrolujte formát čísla účtu (např. 123456789/0800 nebo CZ6508000000…).
+            QR platba: zkontrolujte formát čísla účtu (např. 123456789/0800).
           </p>
         )}
-        {doc.typ === 'faktura' && !doc.dodavatel.ucet && (
+        {doc.typ === 'faktura' && !doc.dodavatel?.ucet && (
           <p className="mt-4 text-xs print:hidden" style={{ color: '#94a3b8' }}>
             Vyplňte číslo účtu (formát 123456789/0800) pro automatické vygenerování QR platby.
           </p>
