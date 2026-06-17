@@ -87,8 +87,36 @@ function RezSVG({ typ, sirka, sklon, presahOkap, vyskaZdi }) {
 
   const isPult = typ === 'pultova'
   const pultH  = s * Math.tan(rad)
+  const isAsym  = typ === 'asymetricka'
+  const isPila  = typ === 'pilova'
 
   const dim = DC.dim
+
+  // ── Geometrie prvků krovů (shoduje se s buildSedlova / buildKrov) ─────────
+  const tanRad  = Math.tan(rad)
+  const cosRad  = Math.cos(rad)
+  const kroAdj  = 0.09 * cosRad              // (KRO_H/2)*cos(sklon) = svislá složka ½ výšky
+  const eaveY   = wTopY + po * tanRad * sc   // screen Y okrajové hrany krokve (nižší než wTopY)
+
+  // Středová vaznice — vrchní strana na spodní straně krokve v místě vZ
+  const vZ_L    = (s / 2) * 0.55
+  const t_vaz   = Math.max(0, Math.min(1, (s/2 + po - vZ_L) / (s/2 + po)))
+  const vKroY   = eaveY + t_vaz * (ridY - eaveY)   // osa krokve v místě vaznice (screen Y)
+  const vazTopY = vKroY + kroAdj * sc               // spodní líc krokve = vrchní líc vaznice
+  const vazBotY = vazTopY + 0.18 * sc               // STV_H = 180 mm
+  const vazLx   = cx - vZ_L * sc - 0.06 * sc        // levá vaznice střed − STV_W/2
+  const vazRx   = cx + vZ_L * sc - 0.06 * sc        // pravá vaznice střed − STV_W/2
+  const vazW    = 0.12 * sc                          // STV_W = 120 mm
+
+  // Kleštiny — centrum: spodní strana vaznice + KLE_H/2
+  const kleCenterY = vazBotY + 0.08 * sc            // KLE_H/2 = 80 mm
+  const kleTopY    = kleCenterY - 0.08 * sc
+  const kleBotY    = kleCenterY + 0.08 * sc
+  // X poloha krokve v místě kleštiny (v screen souřadnicích = Z v reálném prostoru)
+  const t_kle_s = (eaveY - kleCenterY) / (eaveY - ridY + 0.001)
+  const kleXL   = eLx  + t_kle_s * (cx   - eLx)    // levá krokev X v místě kleštiny
+  const kleXR   = eRx  + t_kle_s * (cx   - eRx)    // pravá krokev X
+  const dzSc    = (0.08 * sc) / Math.max(0.3, tanRad)  // šířka zářezu v screen px
 
   return (
     <svg width={W} height={H} style={{ display: 'block', background: DC.bg }}>
@@ -115,10 +143,27 @@ function RezSVG({ typ, sirka, sklon, presahOkap, vyskaZdi }) {
       <rect x={wrx}      y={wTopY} width={14} height={wH * sc} fill="#d4d0cc" stroke={DC.wStroke} strokeWidth={1} />
 
       {/* Střecha — fill */}
-      {!isMans && !isPult && (
-        <polygon points={`${eLx},${wTopY} ${cx},${isMans ? mansRidY : ridY} ${eRx},${wTopY}`}
-          fill={DC.roof} fillOpacity={0.85} stroke={DC.ridge} strokeWidth={2} />
+      {!isMans && !isPult && !isPila && (
+        <polygon
+          points={
+            isAsym
+              ? `${eLx},${wTopY} ${cx + s * 0.10 * sc},${gY - (wH + h * 0.88) * sc} ${eRx},${wTopY}`
+              : `${eLx},${wTopY} ${cx},${ridY} ${eRx},${wTopY}`
+          }
+          fill={DC.roof} fillOpacity={0.85} stroke={DC.ridge} strokeWidth={2}
+        />
       )}
+      {isPila && (() => {
+        const N = Math.max(2, Math.round(d / Math.max(s * 0.8, 1.5)))
+        const segW = (eRx - eLx) / N
+        const segH = s * Math.tan(rad) * sc
+        const pts = [`${eLx},${wTopY}`]
+        for (let i = 0; i < N; i++) {
+          pts.push(`${eLx + i * segW},${wTopY - segH}`)
+          pts.push(`${eLx + (i + 1) * segW},${wTopY}`)
+        }
+        return <polygon points={pts.join(' ')} fill={DC.roof} fillOpacity={0.85} stroke={DC.ridge} strokeWidth={2} />
+      })()}
       {isMans && (
         <polygon points={`${eLx},${wTopY} ${mansKneeInL},${mansKneeY} ${cx},${mansRidY} ${mansKneeInR},${mansKneeY} ${eRx},${wTopY}`}
           fill={DC.roof} fillOpacity={0.85} stroke={DC.ridge} strokeWidth={2} />
@@ -128,13 +173,32 @@ function RezSVG({ typ, sirka, sklon, presahOkap, vyskaZdi }) {
           fill={DC.roof} fillOpacity={0.85} stroke={DC.ridge} strokeWidth={2} />
       )}
 
-      {/* Krokve */}
-      {!isMans && !isPult && (
+      {/* Krokve — od okapu (klesají za zeď) až po hřeben */}
+      {!isMans && !isPult && !isPila && (
         <>
-          <line x1={wlx} y1={wTopY} x2={cx} y2={ridY} stroke={DC.krov} strokeWidth={5} strokeLinecap="round" />
-          <line x1={wrx} y1={wTopY} x2={cx} y2={ridY} stroke={DC.krov} strokeWidth={5} strokeLinecap="round" />
+          <line x1={eLx} y1={eaveY} x2={isAsym ? cx + s * 0.10 * sc : cx} y2={isAsym ? gY - (wH + h * 0.88) * sc : ridY} stroke={DC.krov} strokeWidth={5} strokeLinecap="round" />
+          <line x1={eRx} y1={eaveY} x2={isAsym ? cx + s * 0.10 * sc : cx} y2={isAsym ? gY - (wH + h * 0.88) * sc : ridY} stroke={DC.krov} strokeWidth={5} strokeLinecap="round" />
+          {/* Středové vaznice — vrchní strana na spodní straně krokve */}
+          <rect x={vazLx} y={vazTopY} width={vazW} height={0.18*sc} fill="#5a2808" rx={1} />
+          <rect x={vazRx} y={vazTopY} width={vazW} height={0.18*sc} fill="#5a2808" rx={1} />
+          {/* Kleštiny — parallelogram se zaříznutými konci */}
+          {kleXR > kleXL + 4 && (
+            <polygon
+              points={`${kleXL+dzSc},${kleTopY} ${kleXR-dzSc},${kleTopY} ${kleXR+dzSc},${kleBotY} ${kleXL-dzSc},${kleBotY}`}
+              fill="#8B5E3C" stroke="#5a3010" strokeWidth={0.8}
+            />
+          )}
         </>
       )}
+      {isPila && (() => {
+        const N = Math.max(2, Math.round(d / Math.max(s * 0.8, 1.5)))
+        const segW = (eRx - eLx) / N
+        const segH = s * Math.tan(rad) * sc
+        return Array.from({ length: N }, (_, i) => (
+          <line key={i} x1={eLx + (i + 1) * segW} y1={wTopY} x2={eLx + i * segW} y2={wTopY - segH}
+            stroke={DC.krov} strokeWidth={5} strokeLinecap="round" />
+        ))
+      })()}
       {isMans && (
         <>
           <line x1={wlx} y1={wTopY} x2={mansKneeInL} y2={mansKneeY} stroke={DC.krov} strokeWidth={5} strokeLinecap="round" />
@@ -251,8 +315,7 @@ function PohledySVG({ typ, sirka, delka, sklon, presahOkap, presahStit, vyskaZdi
   let frontRoof
   switch (typ) {
     case 'valbova': case 'stanova': {
-      const vip = Math.min(fPO, fS / 2)
-      frontRoof = `${fox},${foy - fWH} ${fox + vip},${foy - fWH - fRH} ${fox + fPO * 2 + fS - vip},${foy - fWH - fRH} ${fox + fPO * 2 + fS},${foy - fWH}`
+      frontRoof = `${fox},${foy - fWH} ${fox + (fPO * 2 + fS) / 2},${foy - fWH - fRH} ${fox + fPO * 2 + fS},${foy - fWH}`
       break
     }
     case 'pultova':
@@ -282,6 +345,12 @@ function PohledySVG({ typ, sirka, delka, sklon, presahOkap, presahStit, vyskaZdi
     case 'pultova':
       sideRoof = `${sox},${soy - sWH2 - sRH} ${sox + sPS + sD + sPS},${soy - sWH2} ${sox},${soy - sWH2}`
       break
+    case 'valbova': case 'stanova': {
+      const rxSc = Math.max(0, (d / 2 - s / 2)) * ssc
+      const cxS  = sox + sPS + sD / 2
+      sideRoof = `${sox},${soy - sWH2} ${cxS - rxSc},${soy - sWH2 - sRH} ${cxS + rxSc},${soy - sWH2 - sRH} ${sox + sPS * 2 + sD},${soy - sWH2}`
+      break
+    }
     default:
       sideRoof = `${sox},${soy - sWH2} ${sox + sPS},${soy - sWH2 - sRH} ${sox + sPS + sD},${soy - sWH2 - sRH} ${sox + sPS * 2 + sD},${soy - sWH2}`
   }

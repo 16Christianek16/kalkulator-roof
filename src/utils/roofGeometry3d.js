@@ -595,6 +595,50 @@ function addBeam(group, mat, p1, p2, bw = 0.10, bh = 0.16) {
   group.add(mesh)
 }
 
+// Kleštiny se zaříznutými konci podle sklonu střechy.
+// kZL/kZR = Z osa levé/pravé krokve v místě kleštiny, tanSl = tan(sklon).
+function addKlestina(group, mat, x, klY, kZL, kZR, bw, bh, tanSl) {
+  if (kZR - kZL < 0.05) return
+  const dz = (bh / 2) / tanSl          // vodorovný přesah zářezu (kolik mm)
+  const x0 = x - bw / 2, x1 = x + bw / 2
+  const y0 = klY - bh / 2, y1 = klY + bh / 2
+  const zLb = kZL - dz, zLt = kZL + dz  // levý konec: Z dole / nahoře
+  const zRb = kZR + dz, zRt = kZR - dz  // pravý konec: Z dole / nahoře
+  // 12 trojúhelníků, neindexováno — computeVertexNormals počítá normály podle ploch
+  const pos = new Float32Array([
+    // Levý zaříznutý konec (normála ~−Z)
+    x0,y0,zLb,  x0,y1,zLt,  x1,y1,zLt,
+    x0,y0,zLb,  x1,y1,zLt,  x1,y0,zLb,
+    // Pravý zaříznutý konec (normála ~+Z)
+    x0,y0,zRb,  x1,y0,zRb,  x1,y1,zRt,
+    x0,y0,zRb,  x1,y1,zRt,  x0,y1,zRt,
+    // Spodní plocha (−Y)
+    x0,y0,zLb,  x1,y0,zLb,  x1,y0,zRb,
+    x0,y0,zLb,  x1,y0,zRb,  x0,y0,zRb,
+    // Vrchní plocha (+Y)
+    x0,y1,zRt,  x1,y1,zRt,  x1,y1,zLt,
+    x0,y1,zRt,  x1,y1,zLt,  x0,y1,zLt,
+    // Přední stěna x0 (−X)
+    x0,y0,zLb,  x0,y0,zRb,  x0,y1,zRt,
+    x0,y0,zLb,  x0,y1,zRt,  x0,y1,zLt,
+    // Zadní stěna x1 (+X)
+    x1,y0,zLb,  x1,y1,zLt,  x1,y1,zRt,
+    x1,y0,zLb,  x1,y1,zRt,  x1,y0,zRb,
+  ])
+  const uvs = new Float32Array(pos.length / 3 * 2)
+  for (let i = 0; i < pos.length / 3; i++) {
+    uvs[i*2]   = (pos[i*3] - x0) / bw
+    uvs[i*2+1] = (pos[i*3+1] - y0) / bh
+  }
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  geo.setAttribute('uv',       new THREE.Float32BufferAttribute(uvs, 2))
+  geo.computeVertexNormals()
+  const mesh = new THREE.Mesh(geo, mat)
+  mesh.castShadow = true
+  group.add(mesh)
+}
+
 export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wallHeight = 3, roztecKrokvi = 900) {
   const s   = Math.max(parseFloat(sirka)      || 8,   2)
   const d   = Math.max(parseFloat(delka)      || 12,  2)
@@ -614,7 +658,7 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
 
   const group = new THREE.Group()
 
-  const nMez = Math.max(1, Math.round(d / roz))
+  const nMez = Math.max(1, Math.ceil(d / roz))
   const dRoz = d / nMez
   const krokvePosX = Array.from({ length: nMez + 1 }, (_, i) => -d / 2 + i * dRoz)
 
@@ -624,7 +668,10 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
   const STV_H = 0.18, STV_W = 0.12  // Středová vaznice 120×180 mm
   const KRO_H = 0.18, KRO_W = 0.10  // Krokve 100×180 mm
   const KLE_H = 0.16, KLE_W = 0.06  // Kleštiny 60×160 mm
-  const cosSlope = Math.cos(slRad)   // pro výpočet svislé složky tloušťky krokve
+  const kleOffset = KRO_W / 2 + KLE_W / 2  // odsazení kleštiny od osy krokve = 0.08 m
+  const cosSlope = Math.cos(slRad)
+  const sinSlope = Math.sin(slRad)
+  const tanSlope = sinSlope / cosSlope
 
   const buildSedlova = (ridgeZ = 0, ridgeH = h, leftPo = po, rightPo = po) => {
     // Polohy středů a vrchních ploch podpor
@@ -633,11 +680,17 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
     const hreCY  = wH + ridgeH               // střed vrcholové vaznice
     const hreTop = hreCY + HRE_H / 2         // vrchní strana vrcholové vaznice
 
-    // Krokev: spodní líc leží na vrchní straně podpory.
-    // Svislá vzdálenost od středu krokve k jejímu spodnímu líci = (KRO_H/2) * cos(sklon)
-    const kroAdj    = (KRO_H / 2) * cosSlope
-    const kroStartY = pozTop + kroAdj         // střed krokve u pozednice
-    const kroEndY   = hreTop + kroAdj        // střed krokve u hřebenové vaznice
+    // Krokev — polohování osy:
+    //   spodní líc na vrchní straně pozednice (ve zdi),
+    //   za zdí krokev klesá k okapu (kroStartY < kroAtWall),
+    //   u hřebene se obě krokve uzavírají prodloužením za střed.
+    const kroAdj      = (KRO_H / 2) * cosSlope           // svislá složka ½ výšky průřezu
+    const kroAtWall   = pozTop + kroAdj                   // osa nad zdí: spodní líc = pozTop ✓
+    const kroStartY   = kroAtWall - leftPo  * tanSlope   // osa u levého okapu (nižší)
+    const kroStartYr  = kroAtWall - rightPo * tanSlope   // osa u pravého okapu
+    const kroEndY     = hreTop + kroAdj                   // osa u hřebene: spodní líc = hreTop ✓
+    const kroRidgeExt  = (KRO_H / 2) * sinSlope          // ΔZ prodloužení za hřeben
+    const kroRidgeYExt = kroRidgeExt * tanSlope           // ΔY podél osy krokve
 
     // Pozednice — 120×120 mm
     addBeam(group, mPoz, V3(-d/2, pozCY, -s/2), V3(d/2, pozCY, -s/2), POZ_W, POZ_H)
@@ -646,39 +699,86 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
     // Vrcholová vaznice — 140×200 mm, střed na úrovni teoretického hřebene
     addBeam(group, mHreben, V3(-d/2 - ps, hreCY, ridgeZ), V3(d/2 + ps, hreCY, ridgeZ), HRE_W, HRE_H)
 
-    // Středové vaznice — 120×180 mm, vždy 2 ks (symetricky ~52 % výšky hřebene)
-    const vZ = (s / 2) * 0.55
-    const vY = wH + ridgeH * 0.52
+    // Středové vaznice — vrchní strana leží na spodní straně krokve v místě vZ
+    const vZ   = (s / 2) * 0.55
+    const vZ_L = vZ - ridgeZ * 0.5         // abs. Z levé vaznice od středu budovy
+    const t_vaz = Math.max(0, Math.min(1,
+      (s/2 + leftPo - vZ_L) / Math.max(0.01, s/2 + leftPo + ridgeZ)
+    ))
+    const vY = kroStartY + t_vaz * (kroEndY - kroStartY) - kroAdj - STV_H / 2
     addBeam(group, mVaznice, V3(-d/2, vY, -(vZ - ridgeZ * 0.5)), V3(d/2, vY, -(vZ - ridgeZ * 0.5)), STV_W, STV_H)
     addBeam(group, mVaznice, V3(-d/2, vY,   vZ + ridgeZ * 0.5 ), V3(d/2, vY,   vZ + ridgeZ * 0.5 ), STV_W, STV_H)
 
-    // Krokve — spodní líc na pozednici dole, na vrcholové vaznici nahoře
+    // Kleštiny — precomputed (nezávisí na x)
+    // Vrchní strana kleštiny leží na spodní straně středové vaznice
+    const stvBotY = vY - STV_H / 2
+    const klY     = stvBotY - KLE_H / 2
+    const t_kle   = Math.max(0, Math.min(1, (klY - kroStartY) / (kroEndY - kroStartY)))
+    // Z-osa krokve v místě kleštiny (levá a pravá krokev)
+    const kZL = -(s/2 + leftPo)  + t_kle * (ridgeZ + s/2 + leftPo)
+    const kZR =  (s/2 + rightPo) + t_kle * (ridgeZ - s/2 - rightPo)
+
+    // ── Kominová výměna ─────────────────────────────────────────────────────
+    // Komín na kladné straně Z (pravý svah), pozice shodná s buildBuilding:
+    //   chimX = d*0.28, chimZ = s*0.12, průřez 400×400 mm, ochranná mezera 100 mm
+    const CHIM_X    = d * 0.28
+    const CHIM_Z    = s * 0.12
+    const VYM_REACH = 0.20 + 0.10        // CHIM_W/2 + clearance = 0.30 m
+    const xTrim1    = CHIM_X - VYM_REACH  // levý vymezovací trám (střed osy)
+    const xTrim2    = CHIM_X + VYM_REACH  // pravý vymezovací trám
+    const zVymBot   = CHIM_Z + VYM_REACH  // dolní výměna (k okapu, kladné Z)
+    const zVymTop   = Math.max(0.05, CHIM_Z - VYM_REACH)  // horní výměna (k hřebeni)
+    // Y-osa pravé krokve v místě výměn (parametrické polohy podél krokve)
+    const _z0     = s/2 + rightPo
+    const _dzR    = _z0 - ridgeZ
+    const tVymBot = Math.max(0, Math.min(1, (_z0 - zVymBot) / _dzR))
+    const tVymTop = Math.max(0, Math.min(1, (_z0 - zVymTop) / _dzR))
+    const yVymBot = kroStartYr + tVymBot * (kroEndY - kroStartYr)
+    const yVymTop = kroStartYr + tVymTop * (kroEndY - kroStartYr)
+
+    // Krokve — spodní líc na pozednici (ve zdi), nahoře uzavřeny přes hřeben
     krokvePosX.forEach(x => {
+      // Levá krokev — vždy plná délka
       addBeam(group, mKrokev,
-        V3(x, kroStartY, -(s/2 + leftPo)),
-        V3(x, kroEndY,   ridgeZ),
+        V3(x, kroStartY,               -(s/2 + leftPo)),
+        V3(x, kroEndY + kroRidgeYExt,   ridgeZ + kroRidgeExt),
         KRO_W, KRO_H
       )
-      addBeam(group, mKrokev,
-        V3(x, kroStartY, s/2 + rightPo),
-        V3(x, kroEndY,   ridgeZ),
-        KRO_W, KRO_H
-      )
-      // Kleštiny — 60×160 mm, přibity po stranách krokví (~62 % výšky hřebene)
-      const klY = wH + ridgeH * 0.62
-      const klZ = (s / 2) * 0.42 + Math.abs(ridgeZ) * 0.42
-      addBeam(group, mKles,
-        V3(x, klY, -klZ + ridgeZ * 0.62),
-        V3(x, klY,  klZ + ridgeZ * 0.62),
-        KLE_W, KLE_H
-      )
+      const inChimZone = x > xTrim1 && x < xTrim2
+      if (inChimZone) {
+        // Nárokrokve v komínové zóně: jen úseky nad a pod výměnou
+        addBeam(group, mKrokev, V3(x, kroEndY+kroRidgeYExt, ridgeZ-kroRidgeExt), V3(x, yVymTop, zVymTop), KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, yVymBot, zVymBot), V3(x, kroStartYr, s/2+rightPo), KRO_W, KRO_H)
+      } else {
+        // Pravá krokev — plná délka mimo zónu
+        addBeam(group, mKrokev,
+          V3(x, kroStartYr,             s/2 + rightPo),
+          V3(x, kroEndY + kroRidgeYExt, ridgeZ - kroRidgeExt),
+          KRO_W, KRO_H
+        )
+        addKlestina(group, mKles, x - kleOffset, klY, kZL, kZR, KLE_W, KLE_H, tanSlope)
+        addKlestina(group, mKles, x + kleOffset, klY, kZL, kZR, KLE_W, KLE_H, tanSlope)
+      }
     })
+
+    // Vymezovací krokve (trimmers) na obou stranách komínu + kleštiny
+    ;[xTrim1, xTrim2].forEach(xt => {
+      addBeam(group, mKrokev, V3(xt, kroStartY,  -(s/2+leftPo)),  V3(xt, kroEndY+kroRidgeYExt, ridgeZ+kroRidgeExt), KRO_W, KRO_H)
+      addBeam(group, mKrokev, V3(xt, kroStartYr,  s/2+rightPo),   V3(xt, kroEndY+kroRidgeYExt, ridgeZ-kroRidgeExt), KRO_W, KRO_H)
+      addKlestina(group, mKles, xt - kleOffset, klY, kZL, kZR, KLE_W, KLE_H, tanSlope)
+      addKlestina(group, mKles, xt + kleOffset, klY, kZL, kZR, KLE_W, KLE_H, tanSlope)
+    })
+
+    // Výměny (header beams) — vodorovné trámy na pravém svahu po stranách komínu
+    addBeam(group, mKrokev, V3(xTrim1, yVymBot, zVymBot), V3(xTrim2, yVymBot, zVymBot), KRO_H, KRO_W)
+    addBeam(group, mKrokev, V3(xTrim1, yVymTop, zVymTop), V3(xTrim2, yVymTop, zVymTop), KRO_H, KRO_W)
   }
 
   switch (typ) {
     case 'sedlova': case 'pulvalbova': buildSedlova(); break
     case 'asymetricka': buildSedlova(s * 0.10, h * 0.88); break
 
+    case 'valbovy':
     case 'valbova': {
       const rx = Math.max(0.05, d / 2 - s / 2)
       const pozCY = wH + POZ_H / 2
@@ -693,11 +793,37 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
         const ridgeEnd = cx < 0 ? V3(-rx, hreTop + kroAdj, 0) : V3(rx, hreTop + kroAdj, 0)
         addBeam(group, mKrokev, V3(cx, pozCY + POZ_H/2 + kroAdj, cz), ridgeEnd, KRO_W, KRO_H)
       })
+      // Krokve + kleštiny valbová — stejná logika jako buildSedlova
+      const kroAtWall_v   = wH + POZ_H + kroAdj            // osa nad zdí (spodní líc = pozTop) ✓
+      const kroStartY_v   = kroAtWall_v - po * tanSlope    // osa u okapu (klesá za zeď)
+      const kroEndY_v     = hreTop + kroAdj
+      const kroRidgeExt_v  = (KRO_H / 2) * sinSlope
+      const kroRidgeYExt_v = kroRidgeExt_v * tanSlope
+      const vZ_v        = (s / 2) * 0.55
+      const t_vaz_v     = Math.max(0, Math.min(1, (s/2 + po - vZ_v) / Math.max(0.01, s/2 + po)))
+      const vY_v        = kroStartY_v + t_vaz_v * (kroEndY_v - kroStartY_v) - kroAdj - STV_H / 2
+      const klY_v       = vY_v - STV_H / 2 - KLE_H / 2
+      const t_kle_v     = Math.max(0, Math.min(1, (klY_v - kroStartY_v) / (kroEndY_v - kroStartY_v)))
+      const kZLv        = -(s/2 + po) * (1 - t_kle_v)
+      const kZRv        =  (s/2 + po) * (1 - t_kle_v)
       krokvePosX.filter(x => x > -rx && x < rx).forEach(x => {
-        addBeam(group, mKrokev, V3(x, pozCY + POZ_H/2 + kroAdj, -(s/2+po)), V3(x, hreTop + kroAdj, 0), KRO_W, KRO_H)
-        addBeam(group, mKrokev, V3(x, pozCY + POZ_H/2 + kroAdj,  s/2+po),  V3(x, hreTop + kroAdj, 0), KRO_W, KRO_H)
-        const klY = wH + h * 0.62
-        addBeam(group, mKles, V3(x, klY, -(s/2)*0.42), V3(x, klY, (s/2)*0.42), KLE_W, KLE_H)
+        addBeam(group, mKrokev, V3(x, kroStartY_v, -(s/2+po)), V3(x, kroEndY_v + kroRidgeYExt_v,  kroRidgeExt_v), KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, kroStartY_v,  s/2+po),   V3(x, kroEndY_v + kroRidgeYExt_v, -kroRidgeExt_v), KRO_W, KRO_H)
+        addKlestina(group, mKles, x - kleOffset, klY_v, kZLv, kZRv, KLE_W, KLE_H, tanSlope)
+        addKlestina(group, mKles, x + kleOffset, klY_v, kZLv, kZRv, KLE_W, KLE_H, tanSlope)
+      })
+      // Zkrácené krokve (jack rafters) ve valbových koncích
+      const cornerY_v  = wH + POZ_H + kroAdj  // osa rohu valbové krokve (na zdi)
+      const ridgeEndY_v = hreTop + kroAdj     // osa krokve u konce hřebene
+      krokvePosX.filter(x => Math.abs(x) > rx).forEach(x => {
+        const cornerX = x < 0 ? -d/2 : d/2
+        const ridgeX  = x < 0 ? -rx  : rx
+        const t = Math.abs((x - cornerX) / (ridgeX - cornerX + 0.001))
+        const hipY  = cornerY_v + t * (ridgeEndY_v - cornerY_v)
+        const hipZf = -(s/2) * (1 - t)
+        const hipZb =  (s/2) * (1 - t)
+        addBeam(group, mKrokev, V3(x, kroStartY_v, -(s/2+po)), V3(x, hipY, hipZf), KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, kroStartY_v,  s/2+po),  V3(x, hipY, hipZb), KRO_W, KRO_H)
       })
       break
     }
@@ -712,9 +838,16 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
       ;[[-d/2,-s/2],[-d/2,s/2],[d/2,-s/2],[d/2,s/2]].forEach(([cx,cz]) =>
         addBeam(group, mKrokev, V3(cx, pozCY + POZ_H/2, cz), apex, KRO_W, KRO_H)
       )
+      // Kleštiny stanové — pár krokví (přední+zadní) na každé pozici
+      const stKroAdj = (KRO_H / 2) * cosSlope
+      const stKlFrac = 0.62
+      const stKlY  = (wH + POZ_H + stKroAdj) + stKlFrac * ((wH + h) - (wH + POZ_H + stKroAdj))
+      const stKZh  = (s/2 + po) * (1 - stKlFrac)
       krokvePosX.forEach(x => {
         addBeam(group, mKrokev, V3(x, pozCY + POZ_H/2, -(s/2+po)), apex, KRO_W, KRO_H)
         addBeam(group, mKrokev, V3(x, pozCY + POZ_H/2,  s/2+po),   apex, KRO_W, KRO_H)
+        addKlestina(group, mKles, x - kleOffset, stKlY, -stKZh, stKZh, KLE_W, KLE_H, tanSlope)
+        addKlestina(group, mKles, x + kleOffset, stKlY, -stKZh, stKZh, KLE_W, KLE_H, tanSlope)
       })
       break
     }
@@ -748,15 +881,28 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
         addBeam(group, mSloupek, V3(x, wH + POZ_H, -kneeZ), V3(x, kneeY, -kneeZ), 0.12, 0.12)
         addBeam(group, mSloupek, V3(x, wH + POZ_H,  kneeZ), V3(x, kneeY,  kneeZ), 0.12, 0.12)
       })
+      const mLTan = Math.tan(lSlope)
+      const mURidgeExt  = (KRO_H / 2) * sinSlope
+      const mURidgeYExt = mURidgeExt * tanSlope
       krokvePosX.forEach(x => {
         const lAdj = (KRO_H / 2) * lCosSlope
         const uAdj = (KRO_H / 2) * uCosSlope
-        addBeam(group, mKrokev, V3(x, wH + POZ_H + lAdj, -(s/2+po)), V3(x, kneeY + lAdj, -kneeZ), KRO_W, KRO_H)
-        addBeam(group, mKrokev, V3(x, wH + POZ_H + lAdj,  s/2+po),   V3(x, kneeY + lAdj,  kneeZ), KRO_W, KRO_H)
-        addBeam(group, mKrokev, V3(x, kneeY + lAdj, -kneeZ), V3(x, kneeY + uH + uAdj, 0), KRO_W, KRO_H)
-        addBeam(group, mKrokev, V3(x, kneeY + lAdj,  kneeZ), V3(x, kneeY + uH + uAdj, 0), KRO_W, KRO_H)
-        const klY = kneeY + uH * 0.55
-        addBeam(group, mKles, V3(x, klY, -kneeZ * 0.45), V3(x, klY, kneeZ * 0.45), KLE_W, KLE_H)
+        // Spodní krokve — osa u okapu klesá za zeď (eave descent) stejně jako u sedlové
+        const lEaveY = wH + POZ_H + lAdj - po * mLTan
+        addBeam(group, mKrokev, V3(x, lEaveY, -(s/2+po)), V3(x, kneeY + lAdj, -kneeZ), KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, lEaveY,  s/2+po),   V3(x, kneeY + lAdj,  kneeZ), KRO_W, KRO_H)
+        // Horní krokve — prodlouženy přes hřeben (uzavřená špička)
+        addBeam(group, mKrokev, V3(x, kneeY + lAdj, -kneeZ), V3(x, kneeY + uH + uAdj + mURidgeYExt,  mURidgeExt), KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, kneeY + lAdj,  kneeZ), V3(x, kneeY + uH + uAdj + mURidgeYExt, -mURidgeExt), KRO_W, KRO_H)
+        // Kleštiny mansard — vrchní strana na spodní straně hřebenového trámu
+        const kroStartY_m = kneeY + lAdj
+        const kroEndY_m   = kneeY + uH + uAdj
+        const klY_m       = (kneeY + uH) - HRE_H / 2 - KLE_H / 2
+        const t_kle_m     = Math.max(0, Math.min(1, (klY_m - kroStartY_m) / (kroEndY_m - kroStartY_m)))
+        const kZLm        = -kneeZ * (1 - t_kle_m)
+        const kZRm        =  kneeZ * (1 - t_kle_m)
+        addKlestina(group, mKles, x - kleOffset, klY_m, kZLm, kZRm, KLE_W, KLE_H, tanSlope)
+        addKlestina(group, mKles, x + kleOffset, klY_m, kZLm, kZRm, KLE_W, KLE_H, tanSlope)
       })
       break
     }
@@ -775,6 +921,87 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
           addBeam(group, mVaznice, V3(x, wH+segH, -s/2), V3(x+segW, wH+segH, -s/2), STV_W, STV_H)
         }
       }
+      break
+    }
+
+    case 'krokevni': {
+      // Prostý krov — pozednice + krokve + kleštiny (bez vaznic, krokve se opírají o sebe)
+      const pozCY  = wH + POZ_H / 2
+      const pozTop = wH + POZ_H
+      const kroAdj     = (KRO_H / 2) * cosSlope
+      const kroStartY  = pozTop + kroAdj - po * tanSlope
+      const kroEndY    = wH + h + kroAdj
+      const kroRidgeExt  = (KRO_H / 2) * sinSlope
+      const kroRidgeYExt = kroRidgeExt * tanSlope
+      const klFrac = 0.58
+      const klY    = kroStartY + klFrac * (kroEndY - kroStartY)
+      const kZL    = -(s/2 + po) * (1 - klFrac)
+      const kZR    =  (s/2 + po) * (1 - klFrac)
+      addBeam(group, mPoz, V3(-d/2, pozCY, -s/2), V3(d/2, pozCY, -s/2), POZ_W, POZ_H)
+      addBeam(group, mPoz, V3(-d/2, pozCY,  s/2), V3(d/2, pozCY,  s/2), POZ_W, POZ_H)
+      krokvePosX.forEach(x => {
+        addBeam(group, mKrokev, V3(x, kroStartY, -(s/2+po)), V3(x, kroEndY + kroRidgeYExt,  kroRidgeExt), KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, kroStartY,  (s/2+po)), V3(x, kroEndY + kroRidgeYExt, -kroRidgeExt), KRO_W, KRO_H)
+        addKlestina(group, mKles, x - kleOffset, klY, kZL, kZR, KLE_W, KLE_H, tanSlope)
+        addKlestina(group, mKles, x + kleOffset, klY, kZL, kZR, KLE_W, KLE_H, tanSlope)
+      })
+      break
+    }
+
+    case 'hambalkovy': {
+      // Hambalkový krov — krokve + pozednice + hambalky (vodorovná táhla místo vaznic)
+      const pozCY  = wH + POZ_H / 2
+      const pozTop = wH + POZ_H
+      const kroAdj     = (KRO_H / 2) * cosSlope
+      const kroStartY  = pozTop + kroAdj - po * tanSlope
+      const kroEndY    = wH + h + kroAdj
+      const kroRidgeExt  = (KRO_H / 2) * sinSlope
+      const kroRidgeYExt = kroRidgeExt * tanSlope
+      const HAM_H = 0.18, HAM_W = 0.08
+      const hamFrac = 0.48
+      const hamY  = kroStartY + hamFrac * (kroEndY - kroStartY)
+      const hamZL = -(s/2 + po) * (1 - hamFrac)
+      const hamZR =  (s/2 + po) * (1 - hamFrac)
+      addBeam(group, mPoz, V3(-d/2, pozCY, -s/2), V3(d/2, pozCY, -s/2), POZ_W, POZ_H)
+      addBeam(group, mPoz, V3(-d/2, pozCY,  s/2), V3(d/2, pozCY,  s/2), POZ_W, POZ_H)
+      krokvePosX.forEach(x => {
+        addBeam(group, mKrokev, V3(x, kroStartY, -(s/2+po)), V3(x, kroEndY + kroRidgeYExt,  kroRidgeExt), KRO_W, KRO_H)
+        addBeam(group, mKrokev, V3(x, kroStartY,  (s/2+po)), V3(x, kroEndY + kroRidgeYExt, -kroRidgeExt), KRO_W, KRO_H)
+        addBeam(group, mKles, V3(x, hamY, hamZL), V3(x, hamY, hamZR), HAM_W, HAM_H)
+      })
+      break
+    }
+
+    case 'vaznicova-stoj': {
+      // Stojatá stolice — sedlová + vazný trám + stojky pod hřeben. vaznicí
+      buildSedlova()
+      const vatY = wH + POZ_H + 0.14
+      addBeam(group, mSloupek, V3(-d/2, vatY, 0), V3(d/2, vatY, 0), 0.14, 0.16)
+      const stojkaBotY = vatY + 0.08
+      const stojkaTopY = wH + h - HRE_H / 2 - 0.06
+      if (stojkaTopY > stojkaBotY + 0.2) {
+        krokvePosX.filter((_, i) => i % 2 === 0).forEach(x => {
+          addBeam(group, mSloupek, V3(x, stojkaBotY, 0), V3(x, stojkaTopY, 0), 0.12, 0.12)
+        })
+      }
+      break
+    }
+
+    case 'vaznicova-lez': {
+      // Ležatá stolice — sedlová + šikmé vzpěry od hřebenové vaznice ke krokvím
+      buildSedlova()
+      const pozTop   = wH + POZ_H
+      const kroAdj   = (KRO_H / 2) * cosSlope
+      const kroStartY = pozTop + kroAdj - po * tanSlope
+      const kroEndY   = wH + h + kroAdj
+      const lezFrac   = 0.38
+      const lezY      = kroStartY + lezFrac * (kroEndY - kroStartY)
+      const lezZ      = (s/2 + po) * (1 - lezFrac)
+      const ridgeCY   = wH + h
+      krokvePosX.filter((_, i) => i % 3 === 0).forEach(x => {
+        addBeam(group, mSloupek, V3(x, ridgeCY, 0), V3(x, lezY, -lezZ), 0.10, 0.14)
+        addBeam(group, mSloupek, V3(x, ridgeCY, 0), V3(x, lezY,  lezZ), 0.10, 0.14)
+      })
       break
     }
 

@@ -2,6 +2,17 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
 
+// Bezpečné parsování odpovědi — vrátí objekt nebo vyhodí smysluplnou chybu
+async function safeJson(res) {
+  const text = await res.text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    const preview = text.slice(0, 120).replace(/\s+/g, ' ')
+    throw new Error(`Server vrátil neplatnou odpověď (HTTP ${res.status}): ${preview}`)
+  }
+}
+
 const prazdnyForm = {
   email: '', heslo: '', jmeno: '', role: 'user',
   predplatne: false, predplatne_do: ''
@@ -21,8 +32,8 @@ export default function Admin() {
     setLoading(true)
     try {
       const res = await authFetch('/users')
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const data = await safeJson(res)
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
       setUzivatele(data)
     } catch (err) {
       setChyba(err.message)
@@ -60,8 +71,8 @@ export default function Admin() {
         editId ? `/users/${editId}` : '/users',
         { method: editId ? 'PUT' : 'POST', body: JSON.stringify(body) }
       )
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const data = await safeJson(res)
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
       setForm(null)
       nacistUzivatele()
     } catch (err) {
@@ -75,8 +86,8 @@ export default function Admin() {
     setMazuId(id)
     try {
       const res = await authFetch(`/users/${id}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const data = await safeJson(res)
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
       setUzivatele(prev => prev.filter(u => u.id !== id))
     } catch (err) {
       setChyba(err.message)

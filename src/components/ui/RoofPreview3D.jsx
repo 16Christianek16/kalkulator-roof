@@ -16,6 +16,46 @@ const KROV_LEGENDA = [
   { color: '#d08840', label: 'Kleštiny' },
 ]
 
+const KROV_LEGENDA_BY_TYP = {
+  krokevni: [
+    { color: '#4a2008', label: 'Pozednice' },
+    { color: '#a05020', label: 'Krokve' },
+    { color: '#d08840', label: 'Kleštiny' },
+  ],
+  hambalkovy: [
+    { color: '#4a2008', label: 'Pozednice' },
+    { color: '#a05020', label: 'Krokve' },
+    { color: '#d08840', label: 'Hambalky' },
+  ],
+  'vaznicova-stoj': [
+    { color: '#2e1005', label: 'Hřebenová vaznice' },
+    { color: '#4a2008', label: 'Pozednice' },
+    { color: '#6b3010', label: 'Vaznice' },
+    { color: '#7a4520', label: 'Stojky' },
+    { color: '#a05020', label: 'Krokve' },
+    { color: '#d08840', label: 'Kleštiny' },
+  ],
+  'vaznicova-lez': [
+    { color: '#2e1005', label: 'Hřebenová vaznice' },
+    { color: '#4a2008', label: 'Pozednice' },
+    { color: '#6b3010', label: 'Vaznice' },
+    { color: '#7a4520', label: 'Vzpěry' },
+    { color: '#a05020', label: 'Krokve' },
+    { color: '#d08840', label: 'Kleštiny' },
+  ],
+  valbovy: [
+    { color: '#2e1005', label: 'Hřebenová vaznice' },
+    { color: '#4a2008', label: 'Pozednice' },
+    { color: '#a05020', label: 'Krokve' },
+    { color: '#d08840', label: 'Kleštiny' },
+  ],
+}
+
+const KROV_TYP_LABELS = {
+  krokevni: 'Prostý krov', hambalkovy: 'Hambalkový', 'vaznicova-stoj': 'Stojatá stolice',
+  'vaznicova-lez': 'Ležatá stolice', valbovy: 'Valbový krov',
+}
+
 function addControls(camera, domEl, target = { x: 0, y: 3, z: 0 }) {
   let down = false, px = 0, py = 0
   let theta = 0.8, phi = 0.55, radius = 25
@@ -80,7 +120,7 @@ function project(pos3, camera, W, H) {
 
 export default function RoofPreview3D({
   typ, sirka, delka, sklon, presahOkap, presahStit, vyskaZdi,
-  krytina = 'bobrovka', roztecKrokvi = 900, defaultView = 'stecha'
+  krytina = 'bobrovka', roztecKrokvi = 900, defaultView = 'stecha', krovTyp,
 }) {
   const mountRef   = useRef(null)
   const stateRef   = useRef({})
@@ -279,15 +319,8 @@ export default function RoofPreview3D({
     building.userData.building = true
 
     if (viewMode === 'krov') {
-      building.children.forEach(child => {
-        if (child.isMesh) {
-          child.material = child.material.clone()
-          child.material.transparent = true
-          child.material.opacity = 0.12
-        }
-      })
       scene.add(building)
-      const krov = buildKrov(typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi)
+      const krov = buildKrov(krovTyp || typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi)
       krov.userData.building = true
       scene.add(krov)
     } else {
@@ -323,7 +356,7 @@ export default function RoofPreview3D({
       { id: 'slope',  pos: [hd / 2, wH + h / 2, -(hw / 2)], text: `Svah: ${slopeLen.toFixed(1)} m` },
     ]
 
-  }, [typ, sirka, delka, sklon, presahOkap, presahStit, vyskaZdi, krytina, roztecKrokvi, viewMode])
+  }, [typ, sirka, delka, sklon, presahOkap, presahStit, vyskaZdi, krytina, roztecKrokvi, viewMode, krovTyp])
 
   // ── Reakce na změnu barvy bez přestavby celé scény ─────────────────────────
   useEffect(() => {
@@ -402,7 +435,7 @@ export default function RoofPreview3D({
       <div className="absolute top-3 right-3 flex items-center gap-2">
         <div className="px-2.5 py-1 rounded-lg text-xs font-semibold"
           style={{ background: 'rgba(15,23,42,0.65)', color: '#fff' }}>
-          {TYP_LABELS[typ] || typ} · {sklon}°
+          {viewMode === 'krov' && krovTyp ? KROV_TYP_LABELS[krovTyp] || krovTyp : (TYP_LABELS[typ] || typ)} · {sklon}°
         </div>
         {viewMode !== 'krov' && (
           <label title="Barva střechy"
@@ -458,7 +491,7 @@ export default function RoofPreview3D({
       {viewMode === 'krov' && (
         <div className="absolute bottom-10 left-3 rounded-xl p-2.5 flex flex-col gap-1"
           style={{ background: 'rgba(15,23,42,0.80)' }}>
-          {KROV_LEGENDA.map(l => (
+          {(KROV_LEGENDA_BY_TYP[krovTyp] || KROV_LEGENDA).map(l => (
             <div key={l.label} className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-sm shrink-0" style={{ background: l.color }} />
               <span className="text-xs" style={{ color: 'rgba(255,255,255,0.88)' }}>{l.label}</span>

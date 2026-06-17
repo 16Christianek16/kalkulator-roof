@@ -1,7 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+const API = import.meta.env.VITE_API_URL || 'https://kalkulator-roof-backend-production.up.railway.app/api'
+
+async function parseJson(res) {
+  const text = await res.text()
+  try { return JSON.parse(text) }
+  catch { throw new Error(`Neplatná odpověď serveru (HTTP ${res.status}): ${text.slice(0, 100)}`) }
+}
 
 export const useAuthStore = create(
   persist(
@@ -15,7 +21,7 @@ export const useAuthStore = create(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, heslo })
         })
-        const data = await res.json()
+        const data = await parseJson(res)
         if (!res.ok) throw new Error(data.error || 'Chyba přihlášení')
         set({ token: data.token, user: data.user })
         return data.user
@@ -26,15 +32,16 @@ export const useAuthStore = create(
       fetchMe: async () => {
         const token = get().token
         if (!token) return
-        const res = await fetch(`${API}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        if (!res.ok) {
-          set({ token: null, user: null })
-          return
+        try {
+          const res = await fetch(`${API}/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+          if (!res.ok) { set({ token: null, user: null }); return }
+          const user = await parseJson(res)
+          set({ user })
+        } catch {
+          // při chybě sítě necháme uživatele přihlášeného
         }
-        const user = await res.json()
-        set({ user })
       },
 
       // Pomocná funkce pro autorizované fetch požadavky

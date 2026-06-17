@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { delkaKrokve, vyskaHrebene, plochaSedlovaStecha, deg2rad } from '../utils/calculations'
+import { delkaKrokve, vyskaHrebene, plochaSedlovaStecha, deg2rad, pocetMezerKrokvi, pocetKrokviStrany, skutecnaRoztecKrokvi } from '../utils/calculations'
 
 export const useRoofStore = create(
   persist(
@@ -42,15 +42,11 @@ export const useRoofStore = create(
       },
       getPocetKrokvi: () => {
         const { delka, roztecKrokvi } = get()
-        const rozm = roztecKrokvi / 1000
-        const nMezery = Math.max(1, Math.round(delka / rozm))
-        return nMezery + 1
+        return pocetKrokviStrany(delka, roztecKrokvi)
       },
       getSkutecnaRozted: () => {
         const { delka, roztecKrokvi } = get()
-        const rozm = roztecKrokvi / 1000
-        const nMezery = Math.max(1, Math.round(delka / rozm))
-        return (delka / nMezery) * 1000  // mm
+        return skutecnaRoztecKrokvi(delka, roztecKrokvi)
       },
     }),
     { name: 'roof-params-v1' }

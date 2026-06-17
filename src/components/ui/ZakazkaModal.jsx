@@ -3,7 +3,7 @@ import { X, FileText } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../../store/appStore'
 import { krytinyOptions, getKrytina } from '../../data/krytiny'
-import { delkaKrokve as calcDK, vyskaHrebene as calcVH, plochaSedlovaStecha, formatNum } from '../../utils/calculations'
+import { delkaKrokve as calcDK, vyskaHrebene as calcVH, plochaSedlovaStecha, formatNum, pocetMezerKrokvi, pocetKrokviStrany, skutecnaRoztecKrokvi } from '../../utils/calculations'
 
 function computeZakazka(params, krytina) {
   const { sirka, delka, sklon, presahOkap, presahStit, roztecKrokvi } = params
@@ -13,9 +13,9 @@ function computeZakazka(params, krytina) {
   const plocha2D = s * l
   const dk = calcDK(sirka, sklon) + presahOkap
   const vh = calcVH(sirka, sklon)
-  const nMez = Math.max(1, Math.round(delka / (roztecKrokvi / 1000)))
-  const pocetKrokvi = nMez + 1
-  const skutRoz = Math.round((delka / nMez) * 1000)
+  const nMez = pocetMezerKrokvi(delka, roztecKrokvi)
+  const pocetKrokvi = pocetKrokviStrany(delka, roztecKrokvi)
+  const skutRoz = Math.round(skutecnaRoztecKrokvi(delka, roztecKrokvi))
   const q = 1.5 * (roztecKrokvi / 1000)
   const W_mm3 = ((q * dk * dk) / 8) * 1e6 / 24
   const hKr = Math.max(120, Math.ceil(Math.sqrt((6 * W_mm3) / 60) / 10) * 10)

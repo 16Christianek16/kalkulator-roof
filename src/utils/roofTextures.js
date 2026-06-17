@@ -792,7 +792,7 @@ export function buildKrytinaMateriál(krytina) {
     switch (krytina) {
       // baseRepeatX/Y = počet opakování textury na 10m délky / 5m svahu
       // s world-space UV: rX = baseRepeatX/10, rY = baseRepeatY/5 (tiles per metr)
-      case 'bobrovka':                              return drawBobrovka()          // 8×10 tašek/textura
+      case 'bobrovka':                              return drawBobrovka()
       case 'palena_drsnata':                         return drawPalenaDrsnata()
       case 'keramicka':                              return drawPalenaTaska(13, 60, 38)
       case 'palena_romana': case 'tondach_figaro':  return drawPalenaTaska(16, 65, 42)
@@ -811,6 +811,26 @@ export function buildKrytinaMateriál(krytina) {
       case 'asfaltovy_sindel':                      return drawAsfaltSindel()
       case 'vlaknocement':                          return drawVlaknocement()
       case 'onduline':                              return drawTrapez(28, 62, 26)
+      // SATJAM — falcovaný plech / stojatá falc
+      case 'satjam_rapid_deluxe':
+      case 'satjam_profifalc':
+      case 'satjam_rapid_trend':
+      case 'satjam_tp26':                           return drawFalcovany(110, 122, 138)
+      case 'satjam_trapez':                         return drawTrapez(108, 120, 135)
+      // SATJAM — plechová taška (modulová / panelová)
+      case 'satjam_roof':
+      case 'satjam_grande':
+      case 'satjam_trend':
+      case 'satjam_taurus_maxx':
+      case 'satjam_taurus_modul':
+      case 'satjam_york_modul':
+      case 'satjam_reno_modul':
+      case 'satjam_tira_modul':
+      case 'satjam_flat_plus':
+      case 'satjam_sindel':
+      case 'satjam_arad_modul':
+      case 'satjam_rombo_metalic':
+      case 'satjam_rombo_premium':                  return drawPlechovaTaska()
       case 'asfaltovy_pas': {
         const [c, ctx] = makeCanvas()
         ctx.fillStyle = '#0f0f0f'; ctx.fillRect(0, 0, SZ, SZ)

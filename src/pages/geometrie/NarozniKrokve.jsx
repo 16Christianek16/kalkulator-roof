@@ -4,7 +4,7 @@ import PageHeader from '../../components/ui/PageHeader'
 import CalcCard from '../../components/ui/CalcCard'
 import InputField from '../../components/ui/InputField'
 import ResultCard from '../../components/ui/ResultCard'
-import { deg2rad, rad2deg, vyskaHrebene, formatNum } from '../../utils/calculations'
+import { rad2deg, vyskaHrebene, delkaNarozniValbova, delkaNarozniStanova, formatNum } from '../../utils/calculations'
 
 export default function NarozniKrokve() {
   const [sirka, setSirka] = useState(8)
@@ -18,10 +18,11 @@ export default function NarozniKrokve() {
     const h = vyskaHrebene(s, sk)
 
     const pulS = s / 2
-    const pulL = l / 2
 
-    const narozniValbova = Math.sqrt(pulS ** 2 + pulS ** 2 + h ** 2)
-    const uzlabi = Math.sqrt(pulS ** 2 + pulS ** 2 + h ** 2)
+    // Nárožní krokev valbové: sqrt(2×(s/2)² + h²) — závisí jen na s a h
+    const narozniValbova = delkaNarozniValbova(s, sk)
+    // Úžlabní krokev (stejný vzorec — pro jednoduchý L-půdorys se stejným sklonem):
+    const uzlabi = delkaNarozniValbova(s, sk)
     const sklonNarozni = rad2deg(Math.atan(h / Math.sqrt(pulS ** 2 + pulS ** 2)))
 
     return {

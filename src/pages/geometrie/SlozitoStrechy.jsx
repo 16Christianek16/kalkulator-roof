@@ -5,7 +5,7 @@ import CalcCard from '../../components/ui/CalcCard'
 import InputField from '../../components/ui/InputField'
 import SelectField from '../../components/ui/SelectField'
 import ResultCard from '../../components/ui/ResultCard'
-import { deg2rad, delkaKrokve, vyskaHrebene, formatNum } from '../../utils/calculations'
+import { deg2rad, delkaKrokve, vyskaHrebene, plochaValbova, delkaNarozniValbova, plochaStanova, delkaNarozniStanova, plochaPultova, formatNum } from '../../utils/calculations'
 
 export default function SlozitoStrechy() {
   const [typ, setTyp] = useState('sedlova')
@@ -18,36 +18,63 @@ export default function SlozitoStrechy() {
     const s = parseFloat(sirka)
     const l = parseFloat(delka)
     const sk = parseFloat(sklon)
-    const p = parseFloat(presah)
     const krokev = delkaKrokve(s, sk)
     const hreb = vyskaHrebene(s, sk)
 
     if (typ === 'sedlova') {
-      const plocha = 2 * krokev * l
-      const hrebenDel = l
-      return { plocha: formatNum(plocha), krokev: formatNum(krokev), hreb: formatNum(hreb), hrebenDel: formatNum(hrebenDel), typ: 'Sedlová' }
+      return {
+        plocha: formatNum(2 * krokev * l),
+        krokev: formatNum(krokev),
+        hreb: formatNum(hreb),
+        hrebenDel: formatNum(l),
+        typ: 'Sedlová',
+      }
     }
+
     if (typ === 'valbova') {
-      const plochaHlavn = 2 * krokev * (l - s / 2)
-      const plochaValba = 2 * 0.5 * (s / 2) * krokev
-      const plocha = plochaHlavn + plochaValba
-      const hrebenDel = l - s
-      return { plocha: formatNum(plocha), krokev: formatNum(krokev), hreb: formatNum(hreb), hrebenDel: formatNum(hrebenDel), typ: 'Valbová' }
+      // Valbová = sedlová (matematická identita): 2×krokev×delka
+      // Důkaz: hlavní plochy + valby = 2k(l−s/2) + 2×0.5×s×k = 2kl
+      const plocha = plochaValbova(s, l, sk)
+      const narozni = delkaNarozniValbova(s, sk)
+      return {
+        plocha: formatNum(plocha),
+        krokev: formatNum(krokev),
+        hreb: formatNum(hreb),
+        hrebenDel: formatNum(Math.max(0, l - s)),
+        narozni: formatNum(narozni),
+        typ: 'Valbová',
+      }
     }
+
     if (typ === 'pultova') {
-      const krokvPult = s / Math.cos(deg2rad(sk))
-      const plocha = krokvPult * l
-      return { plocha: formatNum(plocha), krokev: formatNum(krokvPult), hreb: formatNum(s * Math.tan(deg2rad(sk))), hrebenDel: formatNum(l), typ: 'Pultová' }
+      const krokev_pult = s / Math.cos(deg2rad(sk))
+      return {
+        plocha: formatNum(plochaPultova(s, l, sk)),
+        krokev: formatNum(krokev_pult),
+        hreb: formatNum(s * Math.tan(deg2rad(sk))),
+        hrebenDel: formatNum(l),
+        typ: 'Pultová',
+      }
     }
+
     if (typ === 'stanova') {
-      const pulsirka = s / 2
-      const puldelka = l / 2
-      const narozni = Math.sqrt(pulsirka ** 2 + puldelka ** 2 + hreb ** 2)
-      const plocha = 2 * (0.5 * s * krokev) + 2 * (0.5 * l * krokev)
-      return { plocha: formatNum(plocha), krokev: formatNum(krokev), hreb: formatNum(hreb), narozni: formatNum(narozni), hrebenDel: '0 (stan)', typ: 'Stanová' }
+      // Stanová: každý pár protilehlých stěn má jinou délku krokve (pro l ≠ s)
+      // Boční strana (base=l): krokev_bok = sqrt((s/2)²+h²)
+      // Štítová strana (base=s): krokev_sit = sqrt((l/2)²+h²)
+      const plocha = plochaStanova(s, l, sk)
+      const narozni = delkaNarozniStanova(s, l, sk)
+      const krokev_bok = Math.sqrt((s / 2) ** 2 + hreb ** 2)
+      return {
+        plocha: formatNum(plocha),
+        krokev: formatNum(krokev_bok),
+        hreb: formatNum(hreb),
+        narozni: formatNum(narozni),
+        hrebenDel: '0 (stan)',
+        typ: 'Stanová',
+      }
     }
     return null
-  }, [typ, sirka, delka, sklon, presah])
+  }, [typ, sirka, delka, sklon])
 
   return (
     <div>
@@ -73,7 +100,7 @@ export default function SlozitoStrechy() {
               <ResultCard label="Délka krokve" value={res.krokev} unit="m" />
               <ResultCard label="Výška hřebene" value={res.hreb} unit="m" />
               <ResultCard label="Délka hřebene" value={res.hrebenDel} unit="m" />
-              {res.narozni && <ResultCard label="Nárožní krokev" value={res.narozni} unit="m" />}
+              {res.narozni && <ResultCard label="Nárožní krokev" value={res.narozni} unit="m" highlight />}
             </div>
           )}
         </CalcCard>

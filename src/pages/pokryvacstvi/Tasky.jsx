@@ -12,12 +12,25 @@ import { krytinyOptions, getKrytina } from '../../data/krytiny'
 
 export default function Tasky() {
   const { getPlocha, sklon } = useRoofStore()
-  const [krytina, setKrytina] = useState('bobrovka')
-  const [presah,  setPresah]  = useState(5)
+  const [krytina,  setKrytina]  = useState('bobrovka')
+  const [pokládka, setPokládka] = useState(null)   // null = první možnost z pokládky[]
+  const [presah,   setPresah]   = useState(5)
 
   const plochaSt = getPlocha()
   const k = getKrytina(krytina)
   const sklarovani = k && sklon < k.minSklon
+
+  // Aktivní konfigurace pokládky (buď vybraná, nebo výchozí z krytiny)
+  const aktivniPokládka = k?.pokládky
+    ? k.pokládky.find(p => p.value === pokládka) ?? k.pokládky[0]
+    : null
+  const ks_m2_aktivni = aktivniPokládka?.ks_m2 ?? k?.ks_m2
+  const rozted_aktivni = aktivniPokládka?.rozted ?? k?.rozted
+
+  const handleKrytinaChange = (val) => {
+    setKrytina(val)
+    setPokládka(null)  // reset pokládky při změně krytiny
+  }
 
   const res = useMemo(() => {
     const p   = plochaSt
@@ -36,18 +49,20 @@ export default function Tasky() {
       }
     }
 
-    const pocet  = Math.ceil(p * k.ks_m2 * pct)
+    const ks = ks_m2_aktivni
+    const pocet  = Math.ceil(p * ks * pct)
     const palety = Math.ceil(pocet / 200)
+    const roztedStr = rozted_aktivni ? rozted_aktivni.min + '–' + rozted_aktivni.max : '—'
     return {
       isPloche: false,
       pocet,
       palety,
-      ks_m2: k.ks_m2,
-      rozted: k.rozted ? k.rozted.min + '–' + k.rozted.max : '—',
+      ks_m2: ks,
+      rozted: roztedStr,
       plocha: formatNum(p),
       vaha: formatNum(pocet * (k.vaha / k.ks_m2)),
     }
-  }, [plochaSt, krytina, presah, k])
+  }, [plochaSt, krytina, pokládka, presah, k, ks_m2_aktivni, rozted_aktivni])
 
   return (
     <div>
@@ -62,7 +77,52 @@ export default function Tasky() {
         <CalcCard title="Parametry">
           <div className="flex flex-col gap-4">
             <InputField label="Rozvinutá plocha střechy" value={res?.plocha ?? '—'} onChange={() => {}} unit="m²" hint="Počítáno z půdorysu — upravte tam" />
-            <SelectField label="Typ krytiny" value={krytina} onChange={setKrytina} options={krytinyOptions()} grouped />
+            <SelectField label="Typ krytiny" value={krytina} onChange={handleKrytinaChange} options={krytinyOptions()} grouped />
+            {k?.pokládky && (
+              <div>
+                <p className="text-xs font-semibold mb-1.5" style={{ color: '#475569' }}>Typ pokládky</p>
+                <div className="flex gap-2 flex-wrap">
+                  {k.pokládky.map(p => (
+                    <button
+                      key={p.value}
+                      onClick={() => setPokládka(p.value)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border"
+                      style={
+                        (pokládka === p.value || (!pokládka && k.pokládky[0].value === p.value))
+                          ? { background: '#0f172a', color: '#fff', borderColor: '#0f172a' }
+                          : { background: '#fff', color: '#475569', borderColor: '#e2e8f0' }
+                      }
+                    >
+                      {p.label}
+                      <span className="ml-1 opacity-70">· {p.ks_m2} ks/m²</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs mt-1.5" style={{ color: '#94a3b8' }}>
+                  Korunové = dvě vrstvy (lepší těsnost, více materiálu). Jednoduché = jedna vrstva.
+                </p>
+              </div>
+            )}
+            {k?.image && (
+              <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <img
+                  src={k.image}
+                  alt={k.label}
+                  style={{ width: 88, height: 66, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
+                  onError={e => { e.target.style.display = 'none' }}
+                />
+                <div className="flex flex-col gap-1 min-w-0">
+                  <span className="text-sm font-semibold" style={{ color: '#1e293b' }}>{k.label}</span>
+                  <span className="text-xs" style={{ color: '#64748b' }}>Min. sklon: {k.minSklon}° · Hmotnost: {k.vaha} kg/m²</span>
+                  {k.poznamka && <span className="text-xs" style={{ color: '#94a3b8' }}>{k.poznamka}</span>}
+                  {k.url && (
+                    <a href={k.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium" style={{ color: '#f97316' }}>
+                      Detail na satjam.cz →
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
             <InputField label="Přirážka na odpad a řezy" value={presah} onChange={setPresah} unit="%" min={3} max={20} />
           </div>
         </CalcCard>

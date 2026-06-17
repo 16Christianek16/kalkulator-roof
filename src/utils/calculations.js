@@ -24,9 +24,50 @@ export const plochaSedlovaStecha = (sirka, delka, sklon_deg) => {
   return 2 * krokev * delka
 }
 
-// Nárožní krokev (valba)
+// Nárožní krokev valbové střechy (symetrická: obě složky = s/2)
+// Vzorec: sqrt((s/2)² + (s/2)² + h²) — 3D úhlopříčka přes sklon
 export const delkaNarozniKrokve = (pulSirky, vyskaHrebene) => {
   return Math.sqrt(pulSirky * pulSirky + pulSirky * pulSirky + vyskaHrebene * vyskaHrebene)
+}
+
+// ─── Plochy střech (geometricky správné vzorce) ────────────────────────────────
+
+// Valbová střecha — rozvinutá plocha
+// Matematická identita: valbová = sedlová = 2 × krokev × delka
+// Důkaz: 2×krokev×(l−s/2) + 2×0.5×s×krokev = 2×krokev×(l−s/2+s/2) = 2×krokev×l
+export const plochaValbova = (sirka, delka, sklon_deg) => {
+  const krokev = delkaKrokve(sirka, sklon_deg)
+  return 2 * krokev * delka
+}
+
+// Nárožní krokev valbové střechy: sqrt((s/2)² + (s/2)² + h²)
+export const delkaNarozniValbova = (sirka, sklon_deg) => {
+  const h  = vyskaHrebene(sirka, sklon_deg)
+  const pS = sirka / 2
+  return Math.sqrt(2 * pS * pS + h * h)
+}
+
+// Stanová střecha — rozvinutá plocha
+// Boční strana (base=delka): slant = sqrt((sirka/2)² + h²) = krokev
+// Štítová strana (base=sirka): slant = sqrt((delka/2)² + h²) — JINÁ délka pro l≠s!
+export const plochaStanova = (sirka, delka, sklon_deg) => {
+  const h = vyskaHrebene(sirka, sklon_deg)
+  const krokev_bok = Math.sqrt((sirka / 2) ** 2 + h * h)   // boční plochy (base=delka)
+  const krokev_sit = Math.sqrt((delka / 2) ** 2 + h * h)   // štítové plochy (base=sirka)
+  return 2 * 0.5 * delka * krokev_bok + 2 * 0.5 * sirka * krokev_sit
+}
+
+// Nárožní krokev stanové střechy: sqrt((l/2)² + (s/2)² + h²)
+export const delkaNarozniStanova = (sirka, delka, sklon_deg) => {
+  const h = vyskaHrebene(sirka, sklon_deg)
+  return Math.sqrt((delka / 2) ** 2 + (sirka / 2) ** 2 + h * h)
+}
+
+// Pultová střecha — rozvinutá plocha
+// krokev_pult = sirka / cos(sklon)
+export const plochaPultova = (sirka, delka, sklon_deg) => {
+  const krokev = sirka / Math.cos(deg2rad(sklon_deg))
+  return krokev * delka
 }
 
 // --- TESAŘSTVÍ ---
@@ -91,6 +132,17 @@ export const zatizeniSnehem = ({ snehovaPas, sklon_deg, nadmorskaNadmorska = 400
   const tvarSouc = sklon_deg <= 30 ? 0.8 : sklon_deg <= 60 ? 0.8 * (60 - sklon_deg) / 30 : 0
   return sk * tvarSouc * nadmorskySouc
 }
+
+// --- KROKVE: mezerová logika ---
+// Správná logika: nMezer = ceil(délka/rozteč), nKrokvi = nMezer + 1, skutečná rozteč = délka/nMezer
+export const pocetMezerKrokvi = (delka_m, rozteč_mm) =>
+  Math.max(1, Math.ceil(delka_m / (rozteč_mm / 1000)))
+
+export const pocetKrokviStrany = (delka_m, rozteč_mm) =>
+  pocetMezerKrokvi(delka_m, rozteč_mm) + 1
+
+export const skutecnaRoztecKrokvi = (delka_m, rozteč_mm) =>
+  (delka_m / pocetMezerKrokvi(delka_m, rozteč_mm)) * 1000  // výsledek v mm
 
 // --- POMOCNÉ ---
 export const round = (val, decimals = 2) => {

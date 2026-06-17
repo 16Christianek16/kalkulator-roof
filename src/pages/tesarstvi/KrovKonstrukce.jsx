@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from 'react'
+import { useState, useMemo, useEffect, lazy, Suspense } from 'react'
 import { Hammer, FileDown, PlusCircle } from 'lucide-react'
 import PageHeader from '../../components/ui/PageHeader'
 import CalcCard from '../../components/ui/CalcCard'
@@ -15,11 +15,11 @@ const RoofPreview3D = lazy(() => import('../../components/ui/RoofPreview3D'))
 
 // ─── Konstanty ───────────────────────────────────────────────────────────────
 const TYPY_KROVU = [
-  { value: 'krokevni',       label: 'Prostý krov (krokevní)' },
-  { value: 'vaznicova-stoj', label: 'Vaznicový krov — stojatá stolice' },
-  { value: 'vaznicova-lez',  label: 'Vaznicový krov — ležatá stolice' },
-  { value: 'hambalkovy',     label: 'Hambalkový krov' },
-  { value: 'valbovy',        label: 'Valbová střecha' },
+  { value: 'krokevni',       label: 'Prostý krov (krokevní)',          typ3d: 'sedlova'  },
+  { value: 'vaznicova-stoj', label: 'Vaznicový krov — stojatá stolice', typ3d: 'sedlova'  },
+  { value: 'vaznicova-lez',  label: 'Vaznicový krov — ležatá stolice',  typ3d: 'sedlova'  },
+  { value: 'hambalkovy',     label: 'Hambalkový krov',                   typ3d: 'sedlova'  },
+  { value: 'valbovy',        label: 'Valbová střecha',                   typ3d: 'valbova'  },
 ]
 
 const DREVINY = [
@@ -33,13 +33,13 @@ const TRIDY = [
   { value: 'C24', label: 'C24 (doporučená)' },
 ]
 
-const LEGENDA = [
-  { color: '#2e1005', label: 'Vrcholová vaznice' },
-  { color: '#4a2008', label: 'Pozednice' },
-  { color: '#6b3010', label: 'Středová vaznice' },
-  { color: '#a05020', label: 'Krokve' },
-  { color: '#d08840', label: 'Kleštiny' },
-]
+const LEGENDA_BY_TYP = {
+  krokevni:       [{ color: '#4a2008', label: 'Pozednice' }, { color: '#a05020', label: 'Krokve' }, { color: '#d08840', label: 'Kleštiny' }],
+  hambalkovy:     [{ color: '#4a2008', label: 'Pozednice' }, { color: '#a05020', label: 'Krokve' }, { color: '#d08840', label: 'Hambalky' }],
+  'vaznicova-stoj': [{ color: '#2e1005', label: 'Vrcholová vaznice' }, { color: '#4a2008', label: 'Pozednice' }, { color: '#6b3010', label: 'Středová vaznice' }, { color: '#7a4520', label: 'Stojky' }, { color: '#a05020', label: 'Krokve' }, { color: '#d08840', label: 'Kleštiny' }],
+  'vaznicova-lez':  [{ color: '#2e1005', label: 'Vrcholová vaznice' }, { color: '#4a2008', label: 'Pozednice' }, { color: '#6b3010', label: 'Středová vaznice' }, { color: '#7a4520', label: 'Vzpěry' }, { color: '#a05020', label: 'Krokve' }, { color: '#d08840', label: 'Kleštiny' }],
+  valbovy:        [{ color: '#2e1005', label: 'Vrcholová vaznice' }, { color: '#4a2008', label: 'Pozednice' }, { color: '#a05020', label: 'Krokve' }, { color: '#d08840', label: 'Kleštiny' }],
+}
 
 // Výchozí průřez krokve dle délky
 function defaultPrurezKrokve(delka_m) {
@@ -52,7 +52,7 @@ function defaultPrurezKrokve(delka_m) {
 const fmtKc = (v) => Math.round(v).toLocaleString('cs-CZ') + ' Kč'
 const fmtM3 = (v) => formatNum(v, 3) + ' m³'
 
-// ─── Výpočty základních parametrů (bez m³ — ty se počítají z průřezu) ────────
+// ─── Výpočty dle typu krovu ───────────────────────────────────────────────────
 function pocitej({ sirka, delka, sklon, presahOkap, roztecKrokvi, typKrovu }) {
   const s   = Math.max(parseFloat(sirka) || 8, 2)
   const d   = Math.max(parseFloat(delka) || 12, 2)
@@ -60,33 +60,166 @@ function pocitej({ sirka, delka, sklon, presahOkap, roztecKrokvi, typKrovu }) {
   const po  = Math.max(parseFloat(presahOkap) || 0.5, 0)
   const roz = Math.max(0.4, (parseFloat(roztecKrokvi) || 900) / 1000)
 
-  const slRad  = deg2rad(sl)
+  const slRad   = deg2rad(sl)
   const lKrokve = (s / 2) / Math.cos(slRad) + po
   const pr      = defaultPrurezKrokve(lKrokve)
-  const nKrokvi = Math.ceil(d / roz) * 2
+  const ridgeH  = (s / 2) * Math.tan(slRad)
+  // nMezery = počet mezer (ceil), nKrokviHlavni = (mezery + 1) * 2 strany = celkový počet krokví
+  const nMezery = Math.max(1, Math.ceil(d / roz))
+  const nKrokviHlavni = (nMezery + 1) * 2
 
-  // Všechny typy krovu mají stejné prvky (shoduje se s 3D buildKrov).
-  // typKrovu ovlivňuje design a průřezy, ale ne to které prvky jsou.
-  const lKlest  = s * 0.6
-  const nKlest  = Math.ceil(nKrokvi / 2)   // kleštiny = 1 na každý pár krokví
-  const nHreben = 1                          // vrcholová vaznice vždy 1 ks
-  const nStred  = 2                          // středové vaznice vždy 2 ks
+  // Geometrie kleštiny (parametr t_kle = pozice podél krokve)
+  const kroAdj = 0.09 * Math.cos(slRad)
+  const t_kle  = Math.max(0, Math.min(1,
+    (ridgeH * 0.52 - 0.29 - kroAdj) / Math.max(0.01, ridgeH - 0.02)
+  ))
+  const lKlest = (s + 2 * po) * (1 - t_kle)
 
-  const prvky = [
-    { prvek: 'Krokve',            b: pr.b, h: pr.h, delka: lKrokve, pocet: nKrokvi },
-    { prvek: 'Pozednice',         b: 120,  h: 120,  delka: d,       pocet: 2 },
-    { prvek: 'Vrcholová vaznice', b: 140,  h: 200,  delka: d,       pocet: nHreben },
-    { prvek: 'Středová vaznice',  b: 120,  h: 180,  delka: d,       pocet: nStred },
-    { prvek: 'Kleštiny',          b: 60,   h: 160,  delka: lKlest,  pocet: nKlest },
-  ]
+  let prvky, spojmat
 
-  const spojmat = [
-    { name: 'Hřebíky 200 mm',    pocet: nKrokvi * 4 },
-    { name: 'Tesařské úhelníky', pocet: nKrokvi * 2 },
-    { name: 'Šrouby M12',        pocet: (nHreben + nStred + 2) * 4 },
-  ]
+  switch (typKrovu) {
+    case 'krokevni': {
+      // Prostý krov: krokve se opírají o sebe, bez vaznic
+      const lKlestK = (s + 2 * po) * 0.42
+      const nPolohy = nMezery + 1   // pozic podél délky = párů krokví
+      prvky = [
+        { prvek: 'Krokve',    b: pr.b, h: pr.h, delka: lKrokve,  pocet: nKrokviHlavni },
+        { prvek: 'Pozednice', b: 120,  h: 120,  delka: d,        pocet: 2 },
+        { prvek: 'Kleštiny',  b: 60,   h: 160,  delka: lKlestK,  pocet: nKrokviHlavni },
+      ]
+      spojmat = [
+        // 1 úhelník/krokev na pozednici
+        { name: 'Tesařské úhelníky', pocet: nKrokviHlavni },
+        // 4 hřebíky/úhelník + 4 hřebíky/pár u hřebene
+        { name: 'Hřebíky 200 mm',   pocet: nKrokviHlavni * 4 + nPolohy * 4 },
+        // 2 svorníky/kleštiny
+        { name: 'Svorníky M16',     pocet: nKrokviHlavni * 2 },
+      ]
+      break
+    }
 
-  return { s, d, sl, lKrokve: formatNum(lKrokve), nKrokvi, prvky, spojmat }
+    case 'hambalkovy': {
+      const lHambalek = (s + 2 * po) * 0.50
+      prvky = [
+        { prvek: 'Krokve',    b: pr.b, h: pr.h, delka: lKrokve,   pocet: nKrokviHlavni },
+        { prvek: 'Pozednice', b: 120,  h: 120,  delka: d,         pocet: 2 },
+        { prvek: 'Hambalky',  b: 80,   h: 180,  delka: lHambalek, pocet: nKrokviHlavni },
+      ]
+      spojmat = [
+        // 1 úhelník/krokev na pozednici
+        { name: 'Tesařské úhelníky', pocet: nKrokviHlavni },
+        // 4 hřebíky/úhelník
+        { name: 'Hřebíky 200 mm',   pocet: nKrokviHlavni * 4 },
+        // 2 svorníky/hambalek (hambalek prochází krokví)
+        { name: 'Svorníky M16',     pocet: nKrokviHlavni * 2 },
+      ]
+      break
+    }
+
+    case 'vaznicova-stoj': {
+      // Stojatá stolice: krokve + 3 vaznice + stojky + kleštiny
+      // nStojky: 1 stojka pod hřebenem na každý 2. pár krokví × 2 strany
+      const nStojky = (Math.ceil(nMezery / 2) + 1) * 2
+      const lStojka = Math.max(0.3, ridgeH - 0.32)
+      // 3 vaznice × 2 konce × 2 šrouby/konec = 12 šroubů pro ukotvení vaznic
+      const nSroubyVaznice = 3 * 2 * 2
+      prvky = [
+        { prvek: 'Krokve',            b: pr.b, h: pr.h, delka: lKrokve, pocet: nKrokviHlavni },
+        { prvek: 'Pozednice',         b: 120,  h: 120,  delka: d,       pocet: 2 },
+        { prvek: 'Vrcholová vaznice', b: 140,  h: 200,  delka: d,       pocet: 1 },
+        { prvek: 'Středová vaznice',  b: 120,  h: 180,  delka: d,       pocet: 2 },
+        { prvek: 'Kleštiny',          b: 60,   h: 160,  delka: lKlest,  pocet: nKrokviHlavni },
+        { prvek: 'Stojky',            b: 120,  h: 120,  delka: lStojka, pocet: nStojky },
+      ]
+      spojmat = [
+        // 2 úhelníky/krokev (poz. + vrch.vaz.)
+        { name: 'Tesařské úhelníky', pocet: nKrokviHlavni * 2 },
+        // 4 hřebíky/úhelník × 2 úhelníky
+        { name: 'Hřebíky 200 mm',   pocet: nKrokviHlavni * 8 },
+        // 2 šrouby/stojka + 2×2 šrouby/konec × 3 vaznice
+        { name: 'Šrouby M12',       pocet: nStojky * 2 + nSroubyVaznice },
+        // 2 svorníky/kleštiny
+        { name: 'Svorníky M16',     pocet: nKrokviHlavni * 2 },
+      ]
+      break
+    }
+
+    case 'vaznicova-lez': {
+      // Ležatá stolice: krokve + 3 vaznice + šikmé vzpěry + kleštiny
+      // nVzper: 1 pár vzpěr na každé 3 krokve
+      const nVzper  = (Math.ceil(nMezery / 3) + 1) * 2
+      const lVzpera = Math.max(0.5, ridgeH * 0.85)
+      const nSroubyVaznice = 3 * 2 * 2
+      prvky = [
+        { prvek: 'Krokve',            b: pr.b, h: pr.h, delka: lKrokve, pocet: nKrokviHlavni },
+        { prvek: 'Pozednice',         b: 120,  h: 120,  delka: d,       pocet: 2 },
+        { prvek: 'Vrcholová vaznice', b: 140,  h: 200,  delka: d,       pocet: 1 },
+        { prvek: 'Středová vaznice',  b: 120,  h: 180,  delka: d,       pocet: 2 },
+        { prvek: 'Kleštiny',          b: 60,   h: 160,  delka: lKlest,  pocet: nKrokviHlavni },
+        { prvek: 'Vzpěry',            b: 100,  h: 160,  delka: lVzpera, pocet: nVzper },
+      ]
+      spojmat = [
+        { name: 'Tesařské úhelníky', pocet: nKrokviHlavni * 2 },
+        { name: 'Hřebíky 200 mm',   pocet: nKrokviHlavni * 8 },
+        // 2 šrouby/vzpěra + 2×2 šrouby/konec × 3 vaznice
+        { name: 'Šrouby M12',       pocet: nVzper * 2 + nSroubyVaznice },
+        { name: 'Svorníky M16',     pocet: nKrokviHlavni * 2 },
+      ]
+      break
+    }
+
+    case 'valbovy': {
+      // Valbový krov: hlavní + nárožní + zkrácené krokve
+      const rx           = Math.max(0.1, d / 2 - s / 2)
+      const nKrokviMain  = (Math.ceil((rx * 2) / roz) + 1) * 2
+      const lNarozni     = Math.sqrt((s / 2) ** 2 + (s / 2) ** 2 + ridgeH ** 2) // sqrt(2*(s/2)²+h²)
+      const nZkracene    = Math.ceil((s / 2) / roz) * 4
+      const lZkraceneAvg = lKrokve * 0.55
+      const lHreben      = Math.max(0.5, d - s)
+      // Všechny krokve mají 1 úhelník na pozednici, hlavní ještě 1 na vaznici
+      const nUhelniky = (nKrokviMain + nZkracene) * 1 + 4 * 1  // každá krokev 1× (poz.)
+      prvky = [
+        { prvek: 'Krokve (hlavní)',     b: pr.b, h: pr.h, delka: lKrokve,      pocet: nKrokviMain },
+        { prvek: 'Nárožní krokve',      b: 120,  h: 220,  delka: lNarozni,     pocet: 4 },
+        { prvek: 'Zkrácené krokve',     b: pr.b, h: pr.h, delka: lZkraceneAvg, pocet: nZkracene },
+        { prvek: 'Pozednice',           b: 120,  h: 120,  delka: d,            pocet: 2 },
+        { prvek: 'Pozednice (štítová)', b: 120,  h: 120,  delka: s,            pocet: 2 },
+        { prvek: 'Vrcholová vaznice',   b: 140,  h: 200,  delka: lHreben,      pocet: 1 },
+        { prvek: 'Kleštiny',            b: 60,   h: 160,  delka: lKlest,       pocet: nKrokviMain },
+      ]
+      spojmat = [
+        // 1 úhelník/krokev na pozednici
+        { name: 'Tesařské úhelníky', pocet: nUhelniky },
+        // 4 hřebíky/úhelník
+        { name: 'Hřebíky 200 mm',   pocet: nUhelniky * 4 },
+        // 2×2 šrouby/konec × 1 vrcholová vaznice
+        { name: 'Šrouby M12',       pocet: 1 * 2 * 2 },
+        // 2 svorníky/kleštiny
+        { name: 'Svorníky M16',     pocet: nKrokviMain * 2 },
+      ]
+      break
+    }
+
+    default: {
+      // Fallback = vaznicová sedlová (úplná soustava)
+      const nStojkyD = (Math.ceil(nMezery / 2) + 1) * 2
+      prvky = [
+        { prvek: 'Krokve',            b: pr.b, h: pr.h, delka: lKrokve, pocet: nKrokviHlavni },
+        { prvek: 'Pozednice',         b: 120,  h: 120,  delka: d,       pocet: 2 },
+        { prvek: 'Vrcholová vaznice', b: 140,  h: 200,  delka: d,       pocet: 1 },
+        { prvek: 'Středová vaznice',  b: 120,  h: 180,  delka: d,       pocet: 2 },
+        { prvek: 'Kleštiny',          b: 60,   h: 160,  delka: lKlest,  pocet: nKrokviHlavni },
+      ]
+      spojmat = [
+        { name: 'Tesařské úhelníky', pocet: nKrokviHlavni * 2 },
+        { name: 'Hřebíky 200 mm',   pocet: nKrokviHlavni * 8 },
+        { name: 'Šrouby M12',       pocet: nStojkyD * 2 + 12 },
+        { name: 'Svorníky M16',     pocet: nKrokviHlavni * 2 },
+      ]
+    }
+  }
+
+  return { s, d, sl, lKrokve: formatNum(lKrokve), nKrokvi: prvky[0]?.pocet ?? nKrokviHlavni, prvky, spojmat }
 }
 
 // ─── Input pro průřez (b × h) ─────────────────────────────────────────────────
@@ -123,6 +256,9 @@ export default function KrovKonstrukce() {
 
   // Přepsání průřezů uživatelem: { 'Krokve': { b: 100, h: 180 }, ... }
   const [prurezMap, setPrurezMap] = useState({})
+
+  // Reset přepsaných průřezů při změně typu krovu (prvky se mění)
+  useEffect(() => { setPrurezMap({}) }, [typKrovu])
 
   const base = useMemo(() =>
     pocitej({ sirka, delka, sklon, presahOkap, roztecKrokvi, typKrovu }),
@@ -332,14 +468,19 @@ export default function KrovKonstrukce() {
           {/* Spojovací materiál */}
           <div className="mt-4 pt-4 border-t" style={{ borderColor: '#e2e8f0' }}>
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#64748b' }}>
-              Orientační kusovník — spojovací materiál
+              Kusovník spojovacího materiálu — počty z geometrie krovu
             </p>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               {base.spojmat.map((polozka, i) => (
-                <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
+                <div key={i}
+                  title={polozka.klíč ? `Klíč: ${polozka.klíč}` : undefined}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs cursor-default"
                   style={{ background: '#f1f5f9', color: '#334155' }}>
                   <span>{polozka.name}:</span>
-                  <strong>{polozka.pocet} Ks</strong>
+                  <strong>{polozka.pocet} ks</strong>
+                  {polozka.klíč && (
+                    <span className="opacity-50 text-xs" style={{ fontSize: 10 }}>({polozka.klíč})</span>
+                  )}
                 </div>
               ))}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
@@ -387,7 +528,10 @@ export default function KrovKonstrukce() {
                   </div>
                 }>
                   <RoofPreview3D
-                    typ={typ} sirka={sirka} delka={delka} sklon={sklon}
+                    key={typKrovu}
+                    typ={TYPY_KROVU.find(t => t.value === typKrovu)?.typ3d || 'sedlova'}
+                    krovTyp={typKrovu}
+                    sirka={sirka} delka={delka} sklon={sklon}
                     presahOkap={presahOkap} presahStit={0.4} vyskaZdi={vyskaZdi}
                     krytina="bobrovka" roztecKrokvi={roztecKrokvi}
                     defaultView="krov"
@@ -395,7 +539,7 @@ export default function KrovKonstrukce() {
                 </Suspense>
               </Preview3DErrorBoundary>
               <div className="mt-3 flex flex-wrap gap-3">
-                {LEGENDA.map(l => (
+                {(LEGENDA_BY_TYP[typKrovu] || LEGENDA_BY_TYP['vaznicova-stoj']).map(l => (
                   <div key={l.label} className="flex items-center gap-1.5">
                     <div className="w-3 h-3 rounded-sm" style={{ background: l.color }} />
                     <span className="text-xs" style={{ color: '#475569' }}>{l.label}</span>

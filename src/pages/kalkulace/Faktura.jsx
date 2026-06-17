@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { FileText, Plus, Trash2, Printer, Save, ArrowLeft, ChevronDown, ChevronUp, X } from 'lucide-react'
+import { FileText, Plus, Trash2, Printer, Save, ArrowLeft, X } from 'lucide-react'
 import PageHeader from '../../components/ui/PageHeader'
 import CalcCard from '../../components/ui/CalcCard'
 import { useAppStore } from '../../store/appStore'
 import { formatNum } from '../../utils/calculations'
+import { ucetNaIBAN, vytvorSPAYD, generujQRSvg, vsZCislaFaktury } from '../../utils/qrPlatba'
 
 // --- helpers ---
 
@@ -51,6 +52,7 @@ function newDoklad(typ, zakazka, dodavatel, doklady) {
     odberatel: { nazev: zakazka?.zakaznik ?? '', adresa: '', ico: '' },
     radky: zakazka ? itemsFromZakazka(zakazka) : [{ id: 1, popis: '', mnozstvi: 1, jednotka: 'm²', cena: 0 }],
     sazbaDP: 21,
+    platceDph: true,
     poznamka: typ === 'nabidka' ? 'Platnost nabídky: 30 dní.' : '',
   }
 }
@@ -80,7 +82,7 @@ const JEDNOTKY = ['ks', 'm²', 'bm', 'hod', 'kg', 'paušál']
 
 function DokladRow({ d, onOpen, onDelete }) {
   const bezDph = d.radky.reduce((s, r) => s + parseFloat(r.mnozstvi || 0) * parseFloat(r.cena || 0), 0)
-  const celkem = bezDph * (1 + d.sazbaDP / 100)
+  const celkem = (d.platceDph ?? true) ? bezDph * (1 + d.sazbaDP / 100) : bezDph
   const isPending = bezDph === 0
 
   return (
@@ -123,6 +125,7 @@ export default function Faktura() {
   const { zakazky, doklady, dodavatel: storedDodavatel, addDoklad, updateDoklad, deleteDoklad, saveDodavatel } = useAppStore()
 
   const [doc, setDoc] = useState(null)
+  const [qrSvg, setQrSvg] = useState(null)
 
   useEffect(() => {
     const state = location.state
@@ -134,6 +137,32 @@ export default function Faktura() {
       navigate(location.pathname, { replace: true, state: null })
     }
   }, [])
+
+  // ── Výpočty (bezpečné pro doc === null) ─────────────────────────────────────
+  const platceDph  = doc?.platceDph ?? true
+  const bezDph     = doc?.radky?.reduce((s, r) => s + parseFloat(r.mnozstvi || 0) * parseFloat(r.cena || 0), 0) ?? 0
+  const dphCast    = platceDph ? bezDph * (doc?.sazbaDP ?? 0) / 100 : 0
+  const celkemSDph = bezDph + dphCast
+
+  // ── SPAYD pro QR — MUSÍ být před early return (Rules of Hooks) ──────────────
+  const spaydStr = useMemo(() => {
+    if (!doc || doc.typ !== 'faktura' || celkemSDph <= 0) return null
+    const iban = ucetNaIBAN(doc.dodavatel?.ucet || '')
+    if (!iban) return null
+    return vytvorSPAYD({
+      iban,
+      castka: celkemSDph,
+      vs: vsZCislaFaktury(doc.cislo),
+      msg: `Faktura ${doc.cislo}`,
+    })
+  }, [celkemSDph, doc?.dodavatel?.ucet, doc?.cislo, doc?.typ, doc])
+
+  useEffect(() => {
+    if (!spaydStr) { setQrSvg(null); return }
+    let stale = false
+    generujQRSvg(spaydStr).then(svg => { if (!stale) setQrSvg(svg) })
+    return () => { stale = true }
+  }, [spaydStr])
 
   const setField = (path, value) => {
     setDoc(d => {
@@ -199,10 +228,7 @@ export default function Faktura() {
     )
   }
 
-  // EDIT / PRINT VIEW
-  const bezDph = doc.radky.reduce((s, r) => s + parseFloat(r.mnozstvi || 0) * parseFloat(r.cena || 0), 0)
-  const dphCast = bezDph * doc.sazbaDP / 100
-  const celkemSDph = bezDph + dphCast
+  // EDIT / PRINT VIEW — bezDph/platceDph/celkemSDph jsou již vypočítány výše
   const typLabel = doc.typ === 'nabidka' ? 'CENOVÁ NABÍDKA' : 'FAKTURA — DAŇOVÝ DOKLAD'
 
   return (
@@ -222,6 +248,18 @@ export default function Faktura() {
                 ? { background: '#3b2008', color: '#fff' }
                 : { background: '#fffaf4', color: '#7a5030' }}>
               {t === 'nabidka' ? 'Nabídka' : 'Faktura'}
+            </button>
+          ))}
+        </div>
+        {/* Přepínač plátce/neplátce DPH */}
+        <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: '#d4b896' }}>
+          {[true, false].map(p => (
+            <button key={String(p)} onClick={() => setField('platceDph', p)}
+              className="px-3 py-2 text-xs font-medium transition-colors"
+              style={platceDph === p
+                ? { background: '#0f172a', color: '#fff' }
+                : { background: '#fffaf4', color: '#7a5030' }}>
+              {p ? 'Plátce DPH' : 'Neplátce DPH'}
             </button>
           ))}
         </div>
@@ -404,24 +442,32 @@ export default function Faktura() {
 
         {/* Součty + DPH */}
         <div className="flex justify-end">
-          <div className="w-64 text-sm">
-            <div className="flex justify-between py-1" style={{ borderBottom: '1px solid #f0dfc0', color: '#7a5030' }}>
-              <span>Celkem bez DPH</span>
-              <span className="font-semibold" style={{ color: '#3b2008' }}>{formatNum(bezDph, 0)} Kč</span>
-            </div>
-            <div className="flex justify-between py-1 items-center" style={{ borderBottom: '1px solid #f0dfc0', color: '#7a5030' }}>
-              <span className="flex items-center gap-1">
-                DPH{' '}
-                <select value={doc.sazbaDP}
-                  onChange={e => setField('sazbaDP', parseFloat(e.target.value))}
-                  className="print:hidden bg-transparent text-xs focus:outline-none border-b"
-                  style={{ borderColor: '#d4b896', color: '#7a5030', width: 40 }}>
-                  {[0, 10, 12, 15, 21].map(v => <option key={v} value={v}>{v} %</option>)}
-                </select>
-                <span className="hidden print:inline">{doc.sazbaDP} %</span>
-              </span>
-              <span className="font-semibold" style={{ color: '#3b2008' }}>{formatNum(dphCast, 0)} Kč</span>
-            </div>
+          <div className="w-72 text-sm">
+            {platceDph ? (
+              <>
+                <div className="flex justify-between py-1" style={{ borderBottom: '1px solid #f0dfc0', color: '#7a5030' }}>
+                  <span>Základ DPH (bez DPH)</span>
+                  <span className="font-semibold" style={{ color: '#3b2008' }}>{formatNum(bezDph, 0)} Kč</span>
+                </div>
+                <div className="flex justify-between py-1 items-center" style={{ borderBottom: '1px solid #f0dfc0', color: '#7a5030' }}>
+                  <span className="flex items-center gap-1">
+                    DPH{' '}
+                    <select value={doc.sazbaDP}
+                      onChange={e => setField('sazbaDP', parseFloat(e.target.value))}
+                      className="print:hidden bg-transparent text-xs focus:outline-none border-b"
+                      style={{ borderColor: '#d4b896', color: '#7a5030', width: 40 }}>
+                      {[0, 10, 12, 15, 21].map(v => <option key={v} value={v}>{v} %</option>)}
+                    </select>
+                    <span className="hidden print:inline">{doc.sazbaDP} %</span>
+                  </span>
+                  <span className="font-semibold" style={{ color: '#3b2008' }}>{formatNum(dphCast, 0)} Kč</span>
+                </div>
+              </>
+            ) : (
+              <div className="py-1 text-xs italic" style={{ color: '#7a5030', borderBottom: '1px solid #f0dfc0' }}>
+                Fakturující subjekt není plátcem DPH dle §6 zák. č. 235/2004 Sb.
+              </div>
+            )}
             <div className="flex justify-between py-2 text-base font-black" style={{ color: '#3b2008' }}>
               <span>Celkem k úhradě</span>
               <span>{formatNum(celkemSDph, 0)} Kč</span>
@@ -447,7 +493,48 @@ export default function Faktura() {
         {doc.dodavatel.ucet && (
           <div className="mt-4 text-xs" style={{ color: '#7a5030' }}>
             Bankovní spojení: <span className="font-semibold" style={{ color: '#3b2008' }}>{doc.dodavatel.ucet}</span>
+            {ucetNaIBAN(doc.dodavatel.ucet) && (
+              <span className="ml-2" style={{ color: '#94a3b8' }}>
+                · IBAN: {ucetNaIBAN(doc.dodavatel.ucet)}
+              </span>
+            )}
           </div>
+        )}
+
+        {/* QR Platba — jen pro faktury s účtem a nenulovou částkou */}
+        {doc.typ === 'faktura' && qrSvg && (
+          <div className="mt-6 pt-4 flex items-start gap-6" style={{ borderTop: '1px solid #f0dfc0' }}>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#7a5030' }}>
+                QR Platba
+              </div>
+              {/* Inline SVG — funguje v tisku i na obrazovce bez canvasu */}
+              <div
+                dangerouslySetInnerHTML={{ __html: qrSvg }}
+                style={{ width: 130, height: 130, border: '1px solid #e0d0c0', borderRadius: 4, padding: 4, background: '#fff' }}
+              />
+            </div>
+            <div className="text-xs" style={{ color: '#7a5030', paddingTop: 24 }}>
+              <p className="font-semibold mb-1" style={{ color: '#3b2008' }}>Platba převodem</p>
+              <p>Naskenujte QR kód v mobilní aplikaci banky.</p>
+              <p className="mt-1">Formát: <span className="font-mono text-xs">SPAYD</span> (standard ČBA).</p>
+              {ucetNaIBAN(doc.dodavatel.ucet) && (
+                <p className="mt-1.5 font-mono" style={{ color: '#94a3b8', wordBreak: 'break-all', fontSize: 10 }}>
+                  {ucetNaIBAN(doc.dodavatel.ucet)}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+        {doc.typ === 'faktura' && spaydStr === null && doc.dodavatel.ucet && celkemSDph > 0 && (
+          <p className="mt-4 text-xs print:hidden" style={{ color: '#f97316' }}>
+            QR platba: zkontrolujte formát čísla účtu (např. 123456789/0800 nebo CZ6508000000…).
+          </p>
+        )}
+        {doc.typ === 'faktura' && !doc.dodavatel.ucet && (
+          <p className="mt-4 text-xs print:hidden" style={{ color: '#94a3b8' }}>
+            Vyplňte číslo účtu (formát 123456789/0800) pro automatické vygenerování QR platby.
+          </p>
         )}
       </div>
     </div>
