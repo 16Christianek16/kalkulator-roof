@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import * as THREE from 'three'
-import { buildRoofScene, buildBuilding, buildKrov } from '../../utils/roofGeometry3d'
+import { buildRoofScene, buildBuilding, buildKrov, buildDormer, buildRoofWindow } from '../../utils/roofGeometry3d'
 
 const TYP_LABELS = {
   sedlova: 'Sedlová', valbova: 'Valbová', pultova: 'Pultová', stanova: 'Stanová',
   mansardova: 'Mansardová', pulvalbova: 'Půlvalbová', asymetricka: 'Asymetrická', pilova: 'Pilová',
+  'tvar-L': 'Tvar L', 'tvar-T': 'Tvar T',
 }
 
 const KROV_LEGENDA = [
@@ -121,6 +122,8 @@ function project(pos3, camera, W, H) {
 export default function RoofPreview3D({
   typ, sirka, delka, sklon, presahOkap, presahStit, vyskaZdi,
   krytina = 'bobrovka', roztecKrokvi = 900, defaultView = 'stecha', krovTyp,
+  vikyre = [], stresniOkna = [],
+  kridloSirka = 4, kridloDelka = 6, kridloOffset = 0,
 }) {
   const mountRef   = useRef(null)
   const stateRef   = useRef({})
@@ -130,8 +133,8 @@ export default function RoofPreview3D({
   const [viewMode,   setViewMode]   = useState(defaultView)
   const [roofColor,  setRoofColor]  = useState('#ffffff')
   const [initError,  setInitError]  = useState(null)
-  const [dims,       setDims]       = useState(null)   // {hrebenLen, sirka, vyska}
-  const [labelPos,   setLabelPos]   = useState([])     // [{x,y,text}]
+  const [dims,       setDims]       = useState(null)
+  const [labelPos,   setLabelPos]   = useState([])
   const [showLabels, setShowLabels] = useState(true)
 
   // ── Three.js setup ──────────────────────────────────────────────────────────
@@ -184,11 +187,10 @@ export default function RoofPreview3D({
       const back = new THREE.DirectionalLight(0xd0e8ff, 0.25)
       back.position.set(0, 4, -20); scene.add(back)
 
-      // Terén — travnatá plocha
+      // Terén
       const gC = document.createElement('canvas'); gC.width = 512; gC.height = 512
       const gc = gC.getContext('2d')
       gc.fillStyle = '#3d6e30'; gc.fillRect(0, 0, 512, 512)
-      // Detaily trávy
       for (let i = 0; i < 4000; i++) {
         const x = (Math.sin(i * 7.3) * 0.5 + 0.5) * 512
         const y = (Math.sin(i * 3.1) * 0.5 + 0.5) * 512
@@ -196,7 +198,6 @@ export default function RoofPreview3D({
         gc.fillStyle = `hsl(120,40%,${l}%)`
         gc.fillRect(x, y, 2, 3)
       }
-      // Jemné švy trávy
       for (let gy = 0; gy < 512; gy += 16) {
         gc.fillStyle = 'rgba(0,0,0,0.04)'
         gc.fillRect(0, gy, 512, 1)
@@ -219,7 +220,6 @@ export default function RoofPreview3D({
         renderer.render(scene, camera)
         frameCount++
 
-        // Update popisků rozměrů každých 5 snímků
         if (frameCount % 5 === 0 && stateRef.current.labelPoints) {
           const { labelPoints, canvasW, canvasH } = stateRef.current
           const newPos = labelPoints.map(lp => {
@@ -229,7 +229,6 @@ export default function RoofPreview3D({
           setLabelPos(newPos)
         }
 
-        // LOD: při vzdálenosti > 35 m skryj drobné detailní meshe
         if (frameCount % 30 === 0 && stateRef.current.controls) {
           const r = stateRef.current.controls.getRadius()
           const showDetail = r < 35
@@ -254,17 +253,15 @@ export default function RoofPreview3D({
 
       stateRef.current = { scene, camera, controls, renderer, canvasW: W, canvasH: H }
 
-      // Auto-rotace při prvním načtení (360° za 4s)
+      // Auto-rotace při prvním načtení
       let rotStart = null
       const ROT_DURATION = 4000
       const startTheta = controls.getTheta()
-
       const autoRotate = (ts) => {
         if (!rotStart) rotStart = ts
         const elapsed = ts - rotStart
         if (elapsed < ROT_DURATION) {
-          const t = elapsed / ROT_DURATION
-          controls.setTheta(startTheta + t * Math.PI * 2)
+          controls.setTheta(startTheta + (elapsed / ROT_DURATION) * Math.PI * 2)
           autoRotRef.current = requestAnimationFrame(autoRotate)
         } else {
           controls.setTheta(startTheta)
@@ -318,6 +315,8 @@ export default function RoofPreview3D({
     const building = buildBuilding(s, d, wH, h)
     building.userData.building = true
 
+    const roofParams = { sirka: s, delka: d, sklon: sl, presahOkap: po, wallHeight: wH }
+
     if (viewMode === 'krov') {
       scene.add(building)
       const krov = buildKrov(krovTyp || typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi)
@@ -325,9 +324,34 @@ export default function RoofPreview3D({
       scene.add(krov)
     } else {
       scene.add(building)
-      const roof = buildRoofScene(typ, s, d, sklon, presahOkap, presahStit, wH, krytina, colorRef.current)
+      const roof = buildRoofScene(
+        typ, s, d, sklon, presahOkap, presahStit, wH, krytina, colorRef.current,
+        { kridloSirka, kridloDelka, kridloOffset }
+      )
       roof.userData.building = true
       scene.add(roof)
+
+      // Vikýře
+      if (Array.isArray(vikyre)) {
+        vikyre.forEach(v => {
+          try {
+            const dg = buildDormer(v, roofParams)
+            dg.userData.building = true
+            scene.add(dg)
+          } catch (e) { console.warn('buildDormer error', e) }
+        })
+      }
+
+      // Střešní okna
+      if (Array.isArray(stresniOkna)) {
+        stresniOkna.forEach(o => {
+          try {
+            const og = buildRoofWindow(o, roofParams)
+            og.userData.building = true
+            scene.add(og)
+          } catch (e) { console.warn('buildRoofWindow error', e) }
+        })
+      }
     }
 
     // Kamera
@@ -343,12 +367,11 @@ export default function RoofPreview3D({
     const hd = d / 2 + ps
     const ridgeLen = ['sedlova','asymetricka','mansardova','pulvalbova'].includes(typ)
       ? d + 2 * ps
-      : ['valbova','pulvalbova'].includes(typ) ? Math.max(0.2, d - s) + 2 * ps : 0
+      : ['valbova'].includes(typ) ? Math.max(0.2, d - s) + 2 * ps : 0
     const slopeLen = Math.sqrt(hw * hw + h * h)
 
     setDims({ hrebenLen: ridgeLen.toFixed(1), sirkaStrechy: (s + 2*po).toFixed(1), vyska: h.toFixed(1), slopeLen: slopeLen.toFixed(1) })
 
-    // Body pro popisky rozměrů
     stateRef.current.labelPoints = [
       { id: 'ridge',  pos: [0, wH + h + 0.3, 0],  text: `Hřeben: ${ridgeLen > 0 ? ridgeLen.toFixed(1) : '—'} m` },
       { id: 'width',  pos: [0, wH, -(s/2 + po + 0.5)], text: `Šířka: ${(s + 2*po).toFixed(1)} m` },
@@ -356,14 +379,14 @@ export default function RoofPreview3D({
       { id: 'slope',  pos: [hd / 2, wH + h / 2, -(hw / 2)], text: `Svah: ${slopeLen.toFixed(1)} m` },
     ]
 
-  }, [typ, sirka, delka, sklon, presahOkap, presahStit, vyskaZdi, krytina, roztecKrokvi, viewMode, krovTyp])
+  }, [typ, sirka, delka, sklon, presahOkap, presahStit, vyskaZdi, krytina, roztecKrokvi, viewMode, krovTyp,
+      vikyre, stresniOkna, kridloSirka, kridloDelka, kridloOffset])
 
-  // ── Reakce na změnu barvy bez přestavby celé scény ─────────────────────────
+  // ── Reakce na změnu barvy ───────────────────────────────────────────────────
   useEffect(() => {
     colorRef.current = roofColor
     const { scene } = stateRef.current
     if (!scene) return
-    // Obnov geometrii se novou barvou
     scene.children.filter(c => c.userData.building).forEach(c => {
       c.traverse(o => {
         if (o.isMesh && o.material?.map) {
@@ -374,7 +397,6 @@ export default function RoofPreview3D({
     })
   }, [roofColor])
 
-  // Propagate errors to ErrorBoundary — AFTER all hooks
   if (initError) throw initError
 
   // ── Screenshot ──────────────────────────────────────────────────────────────
@@ -388,9 +410,6 @@ export default function RoofPreview3D({
     a.download = `strecha-${typ}-${Date.now()}.png`
     a.click()
   }, [typ])
-
-  const W = mountRef.current?.clientWidth || 600
-  const H = mountRef.current?.clientHeight || 430
 
   return (
     <div className="relative w-full rounded-xl overflow-hidden select-none"
@@ -466,11 +485,29 @@ export default function RoofPreview3D({
         </button>
       </div>
 
+      {/* Vikýře + okna badge */}
+      {viewMode !== 'krov' && (vikyre.length > 0 || stresniOkna.length > 0) && (
+        <div className="absolute top-12 left-3 flex flex-col gap-1">
+          {vikyre.length > 0 && (
+            <div className="px-2 py-1 rounded-lg text-xs font-semibold"
+              style={{ background: 'rgba(15,23,42,0.72)', color: '#e0f0ff' }}>
+              🏘 {vikyre.length} vikýř{vikyre.length > 1 ? 'e' : ''}
+            </div>
+          )}
+          {stresniOkna.length > 0 && (
+            <div className="px-2 py-1 rounded-lg text-xs font-semibold"
+              style={{ background: 'rgba(15,23,42,0.72)', color: '#e0f0ff' }}>
+              🪟 {stresniOkna.length} okno{stresniOkna.length > 1 ? 'na' : ''}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Rozměry — textový přehled dole */}
       {dims && viewMode !== 'krov' && (
         <div className="absolute bottom-10 right-3 rounded-xl px-2.5 py-2 flex flex-col gap-0.5"
           style={{ background: 'rgba(10,20,40,0.72)' }}>
-          {dims.hrebenLen > 0 && (
+          {parseFloat(dims.hrebenLen) > 0 && (
             <div className="text-xs" style={{ color: 'rgba(200,220,255,0.90)' }}>
               ▬ Hřeben: <b>{dims.hrebenLen} m</b>
             </div>

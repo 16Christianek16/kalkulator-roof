@@ -61,6 +61,8 @@ export default {
     pulvalbova: 'Půlvalbová',
     asymetricka: 'Asymetrická',
     pilova: 'Pilová',
+    'tvar-L': 'Tvar L',
+    'tvar-T': 'Tvar T',
     sirka: 'Šířka budovy',
     delka: 'Délka budovy',
     sklon: 'Sklon střechy',

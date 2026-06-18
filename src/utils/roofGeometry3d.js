@@ -276,7 +276,7 @@ export function buildBuilding(sirka, delka, wallHeight = 2.7, ridgeHeight = 2.0)
 }
 
 // ─── Main roof builder ────────────────────────────────────────────────────────
-export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit, wallHeight = 2.7, krytina = 'bobrovka', roofColor = '#ffffff') {
+export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit, wallHeight = 2.7, krytina = 'bobrovka', roofColor = '#ffffff', extras = {}) {
   const s  = Math.max(parseFloat(sirka)      || 8,   2)
   const d  = Math.max(parseFloat(delka)      || 12,  2)
   const po = Math.max(parseFloat(presahOkap) || 0.3, 0)
@@ -320,138 +320,276 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
     ), wMat))
   }
 
+  // ── Větrová lišta / štítová lišta (verge board) ─────────────────────────────
+  // Tenká tmavá prkna po okraji štítových přesahů — visí svisle pod okrajem střechy
+  const addVergeBoards = (xPos, wH_, hw_, h_, ridgeZ_ = 0) => {
+    const vbMat = new THREE.MeshStandardMaterial({ color: 0x3a1a05, roughness: 0.88 })
+    const thick = 0.04, depth = 0.18
+
+    // Přední (záporné Z) a zadní (kladné Z) větrová lišta svisle podél štítu
+    ;[-1, 1].forEach(side => {
+      const zEdge = side * hw_
+      const slopeLen = Math.sqrt((hw_ - Math.abs(ridgeZ_)) ** 2 + h_ ** 2)
+      if (slopeLen < 0.1) return
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(thick, depth, slopeLen), vbMat)
+      mesh.castShadow = true
+      mesh.userData.lod = 'detail'
+      // Středový bod lišty: od eave ke hřebenu
+      const midZ = (zEdge + ridgeZ_) / 2
+      const midY = wH_ + h_ / 2
+      mesh.position.set(xPos, midY, midZ)
+      // Rotovat podél sklonu
+      mesh.rotation.x = Math.atan2(h_, hw_ - Math.abs(ridgeZ_)) * (side < 0 ? -1 : 1)
+      group.add(mesh)
+    })
+  }
+
+  // ── Nárožní lišta (hip trim strip) ───────────────────────────────────────────
+  // Tenká hliníková/kovová lišta podél nároží valbové střechy
+  const addHipStrip = (p1, p2) => {
+    const hipMat = new THREE.MeshStandardMaterial({ color: 0x777788, roughness: 0.3, metalness: 0.6 })
+    const dir = new THREE.Vector3(p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2])
+    const len = dir.length()
+    if (len < 0.1) return
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, len), hipMat)
+    mesh.position.set((p1[0]+p2[0])/2, (p1[1]+p2[1])/2, (p1[2]+p2[2])/2)
+    mesh.setRotationFromQuaternion(
+      new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), dir.clone().normalize())
+    )
+    mesh.castShadow = true
+    group.add(mesh)
+  }
+
   switch (typ) {
+
+    // ─── SEDLOVÁ ──────────────────────────────────────────────────────────────
     case 'sedlova': {
       const RB = [-hd, wH + h, 0], RF = [hd, wH + h, 0]
-      // Hlavní svahy — BEZ štítových trojúhelníků (ty jsou ze zdiva níže)
       pos = [...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR)]
       addGableWalls(0, h)
+      // Větrové lišty podél každého štítového přesahu
+      addVergeBoards(-hd, wH, hw, h, 0)
+      addVergeBoards( hd, wH, hw, h, 0)
       break
     }
 
+    // ─── ASYMETRICKÁ ──────────────────────────────────────────────────────────
     case 'asymetricka': {
-      const shift = hw * 0.25, rH = h * 0.88
-      const RB = [-hd, wH + rH, shift], RF = [hd, wH + rH, shift]
+      // Hřeben posunutý výrazně na jednu stranu — kratší svah je strmý
+      const shift  = hw * 0.38                          // posun hřebene od středu (v Z)
+      const ridgeH = (hw - shift) * Math.tan(slRad)     // výška hřebene (z kratší strany při daném sklonu)
+      const RB = [-hd, wH + ridgeH, shift], RF = [hd, wH + ridgeH, shift]
       pos = [...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR)]
-      addGableWalls(hw * 0.25 * (s/2 / hw), rH * (s / 2 / hw))
+      // Štíty — trojúhelníky na stěně (ne na okraji přesahu)
+      const gableShift = shift * (s / 2 / hw)
+      const gableH     = (s/2 - gableShift) * Math.tan(slRad)
+      group.add(meshFrom(tri([-d/2, wH, -s/2], [-d/2, wH, s/2], [-d/2, wH + gableH, gableShift]), wMat.clone()))
+      group.add(meshFrom(tri([d/2, wH, s/2], [d/2, wH, -s/2], [d/2, wH + gableH, gableShift]), wMat.clone()))
+      addVergeBoards(-hd, wH, hw, ridgeH, shift)
+      addVergeBoards( hd, wH, hw, ridgeH, shift)
       break
     }
 
+    // ─── VALBOVÁ ──────────────────────────────────────────────────────────────
     case 'valbova': {
-      const rx = Math.max(0, hd - hw)
-      if (rx < 0.05) {
+      const rx = Math.max(0.1, hd - hw)
+      if (rx < 0.15) {
+        // Skoro stanová (čtvercový půdorys)
         const apex = [0, wH + h, 0]
         pos = [...tri(BL, FL, apex), ...tri(FL, FR, apex), ...tri(FR, BR, apex), ...tri(BR, BL, apex)]
+        // Nárožní lišty
+        addHipStrip([BL[0],BL[1],BL[2]], [0,wH+h,0])
+        addHipStrip([FL[0],FL[1],FL[2]], [0,wH+h,0])
+        addHipStrip([FR[0],FR[1],FR[2]], [0,wH+h,0])
+        addHipStrip([BR[0],BR[1],BR[2]], [0,wH+h,0])
       } else {
         const RB = [-rx, wH + h, 0], RF = [rx, wH + h, 0]
-        // Valbová střecha nemá štíty — nárožní svahy nahrazují štíty
-        pos = [...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR), ...tri(BL, RB, BR), ...tri(FL, FR, RF)]
+        pos = [
+          ...quad(BL, FL, RF, RB),
+          ...quad(BR, RB, RF, FR),
+          ...tri(BL, RB, BR),
+          ...tri(FL, FR, RF),
+        ]
+        // Nárožní lišty (4 ks od rohu ke hřebeni)
+        addHipStrip([BL[0],BL[1],BL[2]], [RB[0],RB[1],RB[2]])
+        addHipStrip([BR[0],BR[1],BR[2]], [RB[0],RB[1],RB[2]])
+        addHipStrip([FL[0],FL[1],FL[2]], [RF[0],RF[1],RF[2]])
+        addHipStrip([FR[0],FR[1],FR[2]], [RF[0],RF[1],RF[2]])
       }
       break
     }
 
+    // ─── STANOVÁ ──────────────────────────────────────────────────────────────
     case 'stanova': {
       const apex = [0, wH + h, 0]
-      // Stanová střecha nemá štíty
-      pos = [...tri(BL, FL, apex), ...tri(FL, FR, apex), ...tri(FR, BR, apex), ...tri(BR, BL, apex)]
+      pos = [
+        ...tri(BL, FL, apex),
+        ...tri(FL, FR, apex),
+        ...tri(FR, BR, apex),
+        ...tri(BR, BL, apex),
+      ]
+      // Nárožní lišty ke štítu
+      addHipStrip([BL[0],BL[1],BL[2]], [0,wH+h,0])
+      addHipStrip([FL[0],FL[1],FL[2]], [0,wH+h,0])
+      addHipStrip([FR[0],FR[1],FR[2]], [0,wH+h,0])
+      addHipStrip([BR[0],BR[1],BR[2]], [0,wH+h,0])
+      // Špičatý vrchol (ozdobná čapka)
+      const apexCap = new THREE.Mesh(
+        new THREE.ConeGeometry(0.12, 0.3, 8),
+        new THREE.MeshStandardMaterial({ color: 0x3a1a05, roughness: 0.85 })
+      )
+      apexCap.position.set(0, wH + h + 0.15, 0)
+      apexCap.castShadow = true
+      apexCap.userData.lod = 'detail'
+      group.add(apexCap)
       break
     }
 
+    // ─── PULTOVÁ ──────────────────────────────────────────────────────────────
     case 'pultova': {
-      const hF = s * Math.tan(slRad)
-      const Lo1 = [-hd, wH, hw], Lo2 = [hd, wH, hw]
-      const Hi1 = [hd, wH + hF, -hw], Hi2 = [-hd, wH + hF, -hw]
-      // Hlavní svah
+      // Svah stoupá od přední (nízké) ke zadní (vysoké) straně
+      const hF = (2 * hw) * Math.tan(slRad)  // výška přes celou šířku včetně přesahu
+      const eaveLow  = wH                      // výška nízkého okapu
+      const eaveHigh = wH + hF                 // výška vysokého okapu
+
+      // Hlavní svah (celá šířka s přesahy)
+      const Lo1 = [-hd, eaveLow,  hw]
+      const Lo2 = [ hd, eaveLow,  hw]
+      const Hi1 = [ hd, eaveHigh, -hw]
+      const Hi2 = [-hd, eaveHigh, -hw]
       pos = [...quad(Lo1, Lo2, Hi1, Hi2)]
-      // Štítové trojúhelníky — použij zdivo na vnitřní pozici
-      group.add(meshFrom(tri([-d/2, wH, s/2], [-d/2, wH + hF, -s/2], [-d/2, wH, -s/2]), wMat))
-      group.add(meshFrom(tri([d/2, wH, s/2], [d/2, wH, -s/2], [d/2, wH + hF, -s/2]), wMat))
+
+      // Boční štítové trojúhelníky (jen na vnitřní stěně ±d/2, zdivo)
+      const hAtWall = s * Math.tan(slRad)  // výška přes šířku budovy
+      group.add(meshFrom(tri(
+        [-d/2, wH, s/2], [-d/2, wH + hAtWall, -s/2], [-d/2, wH, -s/2]
+      ), wMat.clone()))
+      group.add(meshFrom(tri(
+        [d/2, wH, s/2], [d/2, wH, -s/2], [d/2, wH + hAtWall, -s/2]
+      ), wMat.clone()))
+
+      // Přesahové boční trojúhelníky — krytina na přesahu štítu
+      // Od hrany zdi (±d/2) k přesahu (±hd) — malé trojúhelníkové výplně
+      group.add(meshFrom(tri(
+        [-hd, eaveLow, hw], [-hd, eaveHigh, -hw], [-d/2, wH, s/2]
+      ), mat.clone()))
+      group.add(meshFrom(tri(
+        [hd, eaveLow, hw], [d/2, wH, s/2], [hd, eaveHigh, -hw]
+      ), mat.clone()))
+
+      // Fasciová lišta na nízkém okapu (frontální prkno)
+      const fasciaMat = new THREE.MeshStandardMaterial({ color: 0x3a1a05, roughness: 0.88 })
+      const fasciaBoard = new THREE.Mesh(new THREE.BoxGeometry(hd * 2, 0.20, 0.05), fasciaMat)
+      fasciaBoard.position.set(0, eaveLow - 0.10, hw + 0.025)
+      fasciaBoard.castShadow = true
+      fasciaBoard.userData.lod = 'detail'
+      group.add(fasciaBoard)
       break
     }
 
+    // ─── MANSARDOVÁ ───────────────────────────────────────────────────────────
     case 'mansardova': {
-      const lSlope = Math.min(slRad * 1.9, Math.PI * 0.43)
-      const lFrac = 0.40, lHw = hw * lFrac, lH = lHw * Math.tan(lSlope)
-      const uHw = hw - lHw, uH = uHw * Math.tan(slRad)
-      const iY = wH + lH, iZn = -(hw - lHw), iZp = hw - lHw
+      // Mansardová střecha: dolní strmý svah + horní mírný svah na obou stranách
+      // Klasická česká varianta: 2-svahová (sedlová mansarda)
+      const lSlope = Math.min(slRad * 1.85, Math.PI * 0.42)  // dolní sklon ~65-70°
+      const lFrac  = 0.38                                      // dolní svah = 38% šířky
+      const lHw    = hw * lFrac                                // šířka dolního svahu
+      const lH     = lHw * Math.tan(lSlope)                   // výška dolního svahu
+      const uHw    = hw - lHw                                  // šířka horního svahu
+      const uH     = uHw * Math.tan(slRad)                    // výška horního svahu
 
+      const iY   = wH + lH                    // výška kolenního věnce (= báze horní části)
+      const iZn  = -(hw - lHw)                // Z-pozice kolenního věnce (záporná strana)
+      const iZp  =   hw - lHw                 // Z-pozice kolenního věnce (kladná strana)
+
+      // Body na kolenní úrovni
       const IBL = [-hd, iY, iZn], IFL = [hd, iY, iZn]
       const IFR = [hd, iY, iZp], IBR = [-hd, iY, iZp]
+      // Hřeben (plný)
       const RB = [-hd, iY + uH, 0], RF = [hd, iY + uH, 0]
 
+      // Materiál pro dolní strmý svah (stejná krytina, jiný sklon)
       const lMat = buildKrytinaMateriál(krytina)
       if (roofColor && roofColor !== '#ffffff') lMat.color = new THREE.Color(roofColor)
       applyRepeat(lMat, lHw / Math.cos(lSlope), ridgeLen)
-      // Dolní svahy mansardy
+
+      // Dolní svahy — pouze přední a zadní (sedlová varianta)
       group.add(meshFrom([
-        ...quad(BL, FL, IFL, IBL), ...quad(BR, IBR, IFR, FR),
-        ...quad(BL, IBL, IBR, BR), ...quad(FL, FR, IFR, IFL),
+        ...quad(BL, FL, IFL, IBL),   // přední dolní svah
+        ...quad(BR, IBR, IFR, FR),   // zadní dolní svah
       ], lMat))
 
+      // Dolní boční stěny mansardy (svislé zdivo na štítových stranách, od okapu ke koleni)
+      // Tyto plochy jsou STĚNA, ne střecha → wMat
+      group.add(meshFrom([
+        ...quad(BL, IBL, IBR, BR),   // levá (záporný X) boční stěna dolní části
+        ...quad(FL, FR, IFR, IFL),   // pravá (kladný X) boční stěna dolní části
+      ], wMat.clone()))
+
+      // Horní svahy (mírné) — přední a zadní
       applyRepeat(mat, uHw / Math.cos(slRad), ridgeLen)
-      // Horní svahy (bez štítových trojúhelníků)
       pos = [
-        ...quad(IBL, IFL, RF, RB), ...quad(IBR, RB, RF, IFR),
+        ...quad(IBL, IFL, RF, RB),   // přední horní svah
+        ...quad(IBR, RB, RF, IFR),   // zadní horní svah
       ]
-      // Štítová zeď mansardy
-      group.add(meshFrom(tri([-d/2, iY, iZn], [-d/2, iY, iZp], [-d/2, iY + uH, 0]), wMat))
-      group.add(meshFrom(tri([d/2, iY, iZp], [d/2, iY, iZn], [d/2, iY + uH, 0]), wMat))
+
+      // Horní boční štítové trojúhelníky (zdivo nad kolením věncem)
+      group.add(meshFrom(tri([-hd, iY, iZn], [-hd, iY, iZp], [-hd, iY + uH, 0]), wMat.clone()))
+      group.add(meshFrom(tri([ hd, iY, iZp], [ hd, iY, iZn], [ hd, iY + uH, 0]), wMat.clone()))
+
+      // Větrová lišta na horní části
+      addVergeBoards(-hd, iY, uHw + iZp - iZp, uH, 0)
+      addVergeBoards( hd, iY, uHw + iZp - iZp, uH, 0)
       break
     }
 
+    // ─── PŮLVALBOVÁ ───────────────────────────────────────────────────────────
     case 'pulvalbova': {
-      const RB = [-hd, wH + h, 0], RF = [hd, wH + h, 0]
-      const kneeH = h  * 0.48
-      const kneeZ = hw * (1 - 0.48)
-      const KBL = [-hd, wH + kneeH, -kneeZ], KBR = [-hd, wH + kneeH,  kneeZ]
-      const KFL = [ hd, wH + kneeH, -kneeZ], KFR = [ hd, wH + kneeH,  kneeZ]
+      // Půlvalbová (Jerkinhead): jako valbová, ale s kratším hřebenem
+      // Viditelná část štítu = vertikální zeď nad průsečíkem valbového svahu
+      const valFrac = 0.32            // jak velká část šířky tvoří valbu (32 %)
+      const rx      = hd - hw * valFrac  // vzdálenost konce hřebene od středu
 
+      const RB = [-rx, wH + h, 0], RF = [rx, wH + h, 0]
+
+      // Hlavní svahy — trapézoidy (od plné šířky okapu k zkrácenému hřebeni)
       pos = [
-        ...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR),
-        ...tri(KBL, RB, KBR),     ...tri(KFL, KFR, RF),
+        ...quad(BL, FL, RF, RB),    // přední svah (trapézoid)
+        ...quad(BR, RB, RF, FR),    // zadní svah (trapézoid)
+        ...tri(BL, RB, BR),         // levý valbový trojúhelník (šikmý)
+        ...tri(FL, FR, RF),         // pravý valbový trojúhelník (šikmý)
       ]
-      // Štítové zdi pulvalbové (dolní část do kolena)
-      group.add(meshFrom([
-        ...quad([-d/2, wH, -s/2], [-d/2, wH + kneeH, -kneeZ * (s/2/hw)],
-                [-d/2, wH + kneeH, kneeZ * (s/2/hw)], [-d/2, wH, s/2]),
-        ...quad([d/2, wH, s/2], [d/2, wH + kneeH, kneeZ * (s/2/hw)],
-                [d/2, wH + kneeH, -kneeZ * (s/2/hw)], [d/2, wH, -s/2]),
-      ], wMat))
-      // Boční části střechy pod kolenem (přesah)
-      group.add(meshFrom([
-        ...quad([-hd, wH, -hw], KBL, KBR, [-hd, wH, hw]),
-        ...quad([hd, wH, -hw], [hd, wH, hw], KFR, KFL),
-      ], wMat))
+
+      // Štítové zdi — viditelná část zdiva na čele budovy
+      // Tvoří ji trojúhelník od eave až ke střednímu hřebenu
+      // Viditelná zeď je na vnitřní straně (±d/2), za přesahem
+      const wallTopZ = 0   // zeď se tyčí ke středu (ridge Z=0)
+      const wallH    = h   // plná výška od wH k hřebeni
+      group.add(meshFrom(tri(
+        [-d/2, wH, -s/2], [-d/2, wH, s/2], [-d/2, wH + wallH, 0]
+      ), wMat.clone()))
+      group.add(meshFrom(tri(
+        [d/2, wH, s/2], [d/2, wH, -s/2], [d/2, wH + wallH, 0]
+      ), wMat.clone()))
+
+      // Nárožní lišty (4 ks — od rohů ke konci hřebene)
+      addHipStrip([BL[0],BL[1],BL[2]], [RB[0],RB[1],RB[2]])
+      addHipStrip([BR[0],BR[1],BR[2]], [RB[0],RB[1],RB[2]])
+      addHipStrip([FL[0],FL[1],FL[2]], [RF[0],RF[1],RF[2]])
+      addHipStrip([FR[0],FR[1],FR[2]], [RF[0],RF[1],RF[2]])
       break
     }
 
-    case 'pilova': {
-      const N      = Math.max(2, Math.round((hd * 2) / Math.max(hw * 1.0, 1.5)))
-      const toothW = (hd * 2) / N
-      const toothH = hw * 1.3 * Math.tan(slRad)
-      const slopePct = 0.70
-
-      const glassMat = new THREE.MeshStandardMaterial({
-        color: 0x88bbdd, roughness: 0.08, metalness: 0.25,
-        opacity: 0.72, transparent: true, side: THREE.DoubleSide,
-      })
-
-      for (let i = 0; i < N; i++) {
-        const x0 = -hd + i * toothW
-        const xM = x0 + toothW * slopePct
-        const x1 = x0 + toothW
-        pos.push(...quad([x0,wH,hw],[x0,wH,-hw],[xM,wH+toothH,-hw],[xM,wH+toothH,hw]))
-        group.add(meshFrom(quad([xM,wH+toothH,hw],[xM,wH+toothH,-hw],[x1,wH,-hw],[x1,wH,hw]), glassMat.clone()))
-      }
-      for (let i = 0; i < N; i++) {
-        const x0 = -hd + i * toothW
-        const xM = x0 + toothW * slopePct
-        const x1 = x0 + toothW
-        pos.push(
-          ...tri([x0,wH,-hw],[xM,wH+toothH,-hw],[x1,wH,-hw]),
-          ...tri([x0,wH, hw],[x1,wH, hw],[xM,wH+toothH, hw]),
-        )
-      }
+    // ─── TVAR L ───────────────────────────────────────────────────────────────
+    case 'tvar-L':
+    // ─── TVAR T ───────────────────────────────────────────────────────────────
+    case 'tvar-T': {
+      // Hlavní těleso — sedlová střecha (podél X osy)
+      const RB = [-hd, wH + h, 0], RF = [hd, wH + h, 0]
+      pos = [...quad(BL, FL, RF, RB), ...quad(BR, RB, RF, FR)]
+      addGableWalls(0, h)
+      addVergeBoards(-hd, wH, hw, h, 0)
+      addVergeBoards( hd, wH, hw, h, 0)
       break
     }
 
@@ -462,14 +600,82 @@ export function buildRoofScene(typ, sirka, delka, sklon, presahOkap, presahStit,
     }
   }
 
+  // ── L/T tvary — přistavěné křídlo (sedlová střecha kolmá na hlavní) ────────
+  if (typ === 'tvar-L' || typ === 'tvar-T') {
+    const kS   = Math.max(2, parseFloat(extras.kridloSirka) || 4)
+    const kD   = Math.max(2, parseFloat(extras.kridloDelka) || 6)
+    const kOff = parseFloat(extras.kridloOffset) || 0
+
+    const kh  = (kS / 2) * Math.tan(slRad)
+    const khw = kS / 2 + po
+    const khd = kD / 2 + ps
+    const kMat = mat.clone()
+    const valleyMat = new THREE.MeshStandardMaterial({ color: 0x778899, roughness: 0.25, metalness: 0.65 })
+
+    const wingGroup = new THREE.Group()
+    const offsetX = typ === 'tvar-L'
+      ? -(d / 2 + kD / 2)
+      : kOff * Math.max(0, d / 2 - kD / 2)
+    const offsetZ = s / 2 + kS / 2
+
+    // Střecha křídla (sedlová, hřeben podél X — kolmý na hlavní hřeben)
+    const kBL = [-khd, wH, -khw], kFL = [khd, wH, -khw]
+    const kFR = [khd,  wH,  khw], kBR = [-khd, wH,  khw]
+    const kRB = [-khd, wH + kh, 0], kRF = [khd, wH + kh, 0]
+    wingGroup.add(meshFrom([...quad(kBL, kFL, kRF, kRB), ...quad(kBR, kRB, kRF, kFR)], kMat))
+
+    // Štítová zeď křídla (vnější štít) — jen tam kde křídlo nevnavazuje na hlavní budovu
+    if (typ === 'tvar-L') {
+      wingGroup.add(meshFrom(tri([-kD/2, wH, -kS/2], [-kD/2, wH, kS/2], [-kD/2, wH + kh, 0]), wMat.clone()))
+    } else {
+      // T-tvar: oba štíty křídla jsou volné
+      wingGroup.add(meshFrom(tri([-kD/2, wH, -kS/2], [-kD/2, wH, kS/2], [-kD/2, wH + kh, 0]), wMat.clone()))
+      wingGroup.add(meshFrom(tri([kD/2, wH, kS/2], [kD/2, wH, -kS/2], [kD/2, wH + kh, 0]), wMat.clone()))
+    }
+
+    // Úžlabí — lesklý kovový plech v místě styku dvou střech
+    // Úžlabí jde diagonálně od okapního rohu ke hřebeni
+    const valH = Math.min(h, kh)
+    const valleyLen = Math.sqrt(valH ** 2 + (kS / 2) ** 2)
+    const valley = (xPos) => {
+      const vMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.06, valleyLen),
+        valleyMat.clone()
+      )
+      // Diagonální poloha: od [xPos, wH, 0] (na zdi) k [xPos, wH+valH, -kS/2]
+      vMesh.position.set(xPos, wH + valH / 2, -kS / 4)
+      vMesh.rotation.x = Math.atan2(valH, kS / 2)
+      wingGroup.add(vMesh)
+    }
+    // Úžlabí na straně připojení ke křídlu
+    if (typ === 'tvar-L') {
+      valley(kD / 2)
+    } else {
+      valley(-kD / 2)
+      valley( kD / 2)
+    }
+
+    wingGroup.position.set(offsetX, 0, offsetZ)
+    group.add(wingGroup)
+    addRidgeTiles(wingGroup, khd, wH + kh)
+  }
+
   if (pos.length > 0) group.add(meshFrom(pos, mat))
 
-  // ── Hřebenáče — individuální polokruhové tašky ───────────────────────────────
-  if (!['pultova', 'pilova', 'stanova'].includes(typ)) {
-    const rY  = wH + (typ === 'mansardova' ? h * 1.5 : h)
-    const rx  = typ === 'valbova'   ? Math.max(0.1, hd - hw)
-              : typ === 'pulvalbova' ? hd * 0.78
-              : hd
+  // ── Hřebenáče ────────────────────────────────────────────────────────────────
+  if (!['pultova', 'stanova'].includes(typ)) {
+    let rY = wH + h
+    let rx = hd
+    if (typ === 'mansardova') {
+      const lSlope = Math.min(slRad * 1.85, Math.PI * 0.42)
+      const lH = hw * 0.38 * Math.tan(lSlope)
+      const uH = (hw * 0.62) * Math.tan(slRad)
+      rY = wH + lH + uH
+    } else if (typ === 'valbova') {
+      rx = Math.max(0.1, hd - hw)
+    } else if (typ === 'pulvalbova') {
+      rx = hd - hw * 0.32
+    }
     addRidgeTiles(group, rx, rY)
   }
 
@@ -566,16 +772,24 @@ function addEaveTrim(group, typ, hd, hw, wH, h) {
     group.add(bar)
   }
 
-  // Okapní plech podél okapních hran (kde je presah)
+  // Okapní plech podél okapních hran
   if (['sedlova','asymetricka','mansardova','pulvalbova','pultova'].includes(typ)) {
-    addBar(-hd, -hw, hd, -hw)  // přední okap
-    addBar(-hd,  hw, hd,  hw)  // zadní okap
+    addBar(-hd, -hw, hd, -hw)
+    addBar(-hd,  hw, hd,  hw)
   }
   if (['valbova','stanova'].includes(typ)) {
     addBar(-hd, -hw, hd, -hw)
     addBar(-hd,  hw, hd,  hw)
     addBar(-hd, -hw, -hd, hw)
     addBar( hd, -hw,  hd, hw)
+  }
+  if (typ === 'pulvalbova') {
+    // Přidej okapní plech i na boční (valbové) části
+    const rx_ = hd - hw * 0.32
+    addBar(-hd, -hw, -rx_, 0)
+    addBar(-hd,  hw, -rx_, 0)
+    addBar( hd, -hw,  rx_, 0)
+    addBar( hd,  hw,  rx_, 0)
   }
 }
 
@@ -907,23 +1121,6 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
       break
     }
 
-    case 'pilova': {
-      const N = Math.max(2, Math.round((d) / Math.max(s * 0.8, 1.5)))
-      const segW = d / N, segH = s * Math.tan(slRad)
-      const pozCY = wH + POZ_H / 2
-      addBeam(group, mPoz, V3(-d/2, pozCY, -s/2), V3(d/2, pozCY, -s/2), POZ_W, POZ_H)
-      addBeam(group, mPoz, V3(-d/2, pozCY,  s/2), V3(d/2, pozCY,  s/2), POZ_W, POZ_H)
-      for (let i = 0; i <= N; i++) {
-        const x = -d/2 + i * segW
-        addBeam(group, mKrokev, V3(x, wH + POZ_H, s/2+po), V3(x, wH+segH, -s/2), KRO_W, KRO_H)
-        if (i < N) {
-          addBeam(group, mHreben, V3(x, wH+segH, -s/2), V3(x, wH+segH, s/2), HRE_W, HRE_H)
-          addBeam(group, mVaznice, V3(x, wH+segH, -s/2), V3(x+segW, wH+segH, -s/2), STV_W, STV_H)
-        }
-      }
-      break
-    }
-
     case 'krokevni': {
       // Prostý krov — pozednice + krokve + kleštiny (bez vaznic, krokve se opírají o sebe)
       const pozCY  = wH + POZ_H / 2
@@ -1007,6 +1204,176 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
 
     default: buildSedlova()
   }
+
+  return group
+}
+
+// ─── Vikýř (dormer) ──────────────────────────────────────────────────────────
+export function buildDormer(vikyf, { sirka, delka, sklon, presahOkap, wallHeight = 2.7 }) {
+  const s      = Math.max(parseFloat(sirka) || 8, 2)
+  const d      = Math.max(parseFloat(delka) || 12, 2)
+  const po     = Math.max(parseFloat(presahOkap) || 0.3, 0)
+  const wH     = parseFloat(wallHeight) || 2.7
+  const slRad  = Math.max(5, Math.min(parseFloat(sklon) || 35, 75)) * Math.PI / 180
+  const h      = (s / 2) * Math.tan(slRad)
+  const cosA   = Math.cos(slRad), tanA = Math.tan(slRad)
+
+  const { typ = 'sedlovy', sirka: dw = 1.5, vyska: dh = 1.4, poziceX = 0, strana = 'predni' } = vikyf
+  const sign  = strana === 'predni' ? -1 : 1
+  const posX  = poziceX * (d / 2 - dw / 2 - 0.3)
+
+  // Pozice na střešní ploše (střed výšky svahu)
+  const sT    = 0.45                               // 45 % délky svahu od okapu
+  const slopeZ = sign * (s / 2 + po) * (1 - sT)   // Z souřadnice na svahu
+  const slopeY = wH + (s / 2 + po) * tanA * sT    // Y výška v tom místě
+
+  const group = new THREE.Group()
+
+  const wallMat = wallMaterial()
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x7ec8e3, opacity: 0.45, transparent: true, roughness: 0.1 })
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x5a2e10, roughness: 0.85 })
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x4a3020, roughness: 0.8 })
+
+  // ── Přední stěna vikýře ────────────────────────────────────────────────────
+  const frontWall = new THREE.Mesh(new THREE.BoxGeometry(dw, dh, 0.18), wallMat)
+  frontWall.position.set(posX, slopeY + dh / 2, slopeZ)
+  group.add(frontWall)
+
+  // Okno ve stěně
+  const winW = dw * 0.6, winH = dh * 0.55
+  const winGlass = new THREE.Mesh(new THREE.BoxGeometry(winW, winH, 0.06), glassMat)
+  winGlass.position.set(posX, slopeY + dh * 0.52, slopeZ + sign * 0.07)
+  group.add(winGlass)
+  const winFrame = new THREE.Mesh(new THREE.BoxGeometry(winW + 0.1, winH + 0.1, 0.1), frameMat)
+  winFrame.position.copy(winGlass.position)
+  winFrame.position.z += sign * (-0.02)
+  group.add(winFrame)
+
+  // ── Boční stěny vikýře ──────────────────────────────────────────────────
+  const depth = 0.7  // hloubka vikýře do střechy
+  ;[-1, 1].forEach(side => {
+    const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.15, dh, depth), wallMat)
+    cheek.position.set(posX + side * (dw / 2 + 0.075), slopeY + dh / 2, slopeZ + sign * depth / 2)
+    group.add(cheek)
+  })
+
+  // ── Střecha vikýře ──────────────────────────────────────────────────────
+  const dormerRoofH = dw * 0.3
+  const roofSlope   = Math.atan2(dormerRoofH, depth)
+  if (typ === 'sedlovy') {
+    ;[-1, 1].forEach(side => {
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.1, 0.08, Math.sqrt(depth ** 2 + dormerRoofH ** 2) / 2 + 0.1), roofMat)
+      panel.rotation.x = side === -1 ? roofSlope : -roofSlope
+      panel.position.set(posX, slopeY + dh + dormerRoofH / 2 - 0.15, slopeZ + sign * (depth / 4 * side === -1 ? 1 : -1))
+      group.add(panel)
+    })
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.1, 0.08, 0.1), roofMat)
+    ridge.position.set(posX, slopeY + dh + dormerRoofH - 0.04, slopeZ)
+    group.add(ridge)
+  } else {
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.1, 0.08, depth + 0.15), roofMat)
+    panel.rotation.x = -0.2
+    panel.position.set(posX, slopeY + dh + dormerRoofH * 0.4, slopeZ + sign * depth / 2)
+    group.add(panel)
+  }
+
+  // ── Krokve vikýře ─────────────────────────────────────────────────────────
+  const krokveMat = new THREE.MeshStandardMaterial({ color: 0xC8A06A, roughness: 0.85 })
+  const kBW = 0.06, kBH = 0.14
+
+  const addKrokev = (p1, p2) => {
+    const dir = new THREE.Vector3(p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2])
+    const len = dir.length()
+    if (len < 0.05) return
+    const m = new THREE.Mesh(new THREE.BoxGeometry(kBW, kBH, len), krokveMat)
+    m.position.set((p1[0]+p2[0])/2, (p1[1]+p2[1])/2, (p1[2]+p2[2])/2)
+    m.setRotationFromQuaternion(
+      new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), dir.clone().normalize())
+    )
+    m.castShadow = true
+    group.add(m)
+  }
+
+  const ridgeY = slopeY + dh + dormerRoofH   // výška hřebene vikýře
+  const backZ  = slopeZ + sign * depth        // Z-pozice zadní hrany vikýře
+
+  // Hřebenová krokev — vodorovná podél X
+  addKrokev([posX - dw/2 - 0.06, ridgeY, slopeZ], [posX + dw/2 + 0.06, ridgeY, slopeZ])
+
+  ;[-1, 1].forEach(side => {
+    const xS = posX + side * dw / 2
+    // Boční krokev — svislá na štítovém konci (od hřebene k přední hraně)
+    addKrokev([xS, ridgeY, slopeZ], [xS, slopeY + dh, slopeZ])
+    // Nárožní krokev — diagonálně od rohu hřebene k zadní hraně bočnice
+    addKrokev([xS, ridgeY, slopeZ], [xS, slopeY + dh, backZ])
+    // Okapnicová krokev — vodorovně podél horní hrany bočnice
+    addKrokev([xS, slopeY + dh, slopeZ], [xS, slopeY + dh, backZ])
+  })
+
+  // ── Sedlový vikýř — úžlabní plechy ────────────────────────────────────────
+  if (typ === 'sedlovy') {
+    const valleyMat = new THREE.MeshStandardMaterial({ color: 0x7a9ab0, metalness: 0.85, roughness: 0.15 })
+
+    ;[-1, 1].forEach(side => {
+      // Úžlabí začíná v dolním zadním rohu bočnice (kde vikýř sedí na hlavní střeše)
+      const vSX = posX + side * dw / 2
+      const vSY = slopeY
+      const vSZ = backZ
+
+      // Směr úžlabního plechu: ven v X, dolů se sklonem střechy, dál po svahu
+      const vDX = side * 0.40
+      const vDY = -tanA * 0.50
+      const vDZ = sign * 0.55
+      const vLen = Math.sqrt(vDX*vDX + vDY*vDY + vDZ*vDZ)
+
+      const valMesh = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.015, vLen), valleyMat)
+      valMesh.position.set(vSX + vDX/2, vSY + vDY/2, vSZ + vDZ/2)
+      valMesh.setRotationFromQuaternion(
+        new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 0, 1),
+          new THREE.Vector3(vDX, vDY, vDZ).normalize()
+        )
+      )
+      valMesh.castShadow = true
+      group.add(valMesh)
+    })
+  }
+
+  return group
+}
+
+// ─── Střešní okno (Velux style) ───────────────────────────────────────────────
+export function buildRoofWindow(okno, { sirka, delka, sklon, presahOkap, wallHeight = 2.7 }) {
+  const s      = Math.max(parseFloat(sirka) || 8, 2)
+  const d      = Math.max(parseFloat(delka) || 12, 2)
+  const po     = Math.max(parseFloat(presahOkap) || 0.3, 0)
+  const wH     = parseFloat(wallHeight) || 2.7
+  const slRad  = Math.max(5, Math.min(parseFloat(sklon) || 35, 75)) * Math.PI / 180
+  const tanA   = Math.tan(slRad)
+
+  const { sirka: ow = 0.78, vyska: oh = 0.98, poziceX = 0, poziceSklon = 0.45, strana = 'predni' } = okno
+  const sign   = strana === 'predni' ? -1 : 1
+  const posX   = poziceX * (d / 2 - ow / 2 - 0.5)
+
+  // Pozice na svahu
+  const sT     = Math.max(0.1, Math.min(0.85, poziceSklon))
+  const slopeZ = sign * (s / 2 + po) * (1 - sT)
+  const slopeY = wH + (s / 2 + po) * tanA * sT
+
+  const group   = new THREE.Group()
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0x6ab8d4, opacity: 0.55, transparent: true, roughness: 0.08, metalness: 0.2 })
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x3a3028, roughness: 0.7 })
+
+  // Skloněné podle střechy
+  const frameBox = new THREE.Mesh(new THREE.BoxGeometry(ow + 0.1, 0.06, oh + 0.1), frameMat)
+  frameBox.rotation.x = sign * slRad
+  frameBox.position.set(posX, slopeY + 0.03, slopeZ)
+  group.add(frameBox)
+
+  const glassBox = new THREE.Mesh(new THREE.BoxGeometry(ow - 0.06, 0.04, oh - 0.06), glassMat)
+  glassBox.rotation.x = sign * slRad
+  glassBox.position.set(posX, slopeY + 0.05, slopeZ)
+  group.add(glassBox)
 
   return group
 }
