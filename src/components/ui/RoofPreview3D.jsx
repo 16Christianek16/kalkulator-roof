@@ -1,6 +1,35 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import * as THREE from 'three'
 import { buildRoofScene, buildBuilding, buildKrov, buildDormer, buildRoofWindow, buildKlempirsky } from '../../utils/roofGeometry3d'
+import { loadAllPBRTextures, makePBRMaterial } from '../../utils/pbrTextures'
+export { BARVY_KRYTINY } from '../../utils/krytinaColors'
+
+/** Terén — PlaneGeometry s vertex displacement daleko od budovy + PBR grass textura. */
+function buildTerrain(pbrTex) {
+  const geo = new THREE.PlaneGeometry(60, 60, 32, 32)
+  const pos = geo.attributes.position
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i)
+    const dist = Math.sqrt(x * x + y * y)
+    if (dist > 8) {
+      pos.setZ(i, Math.sin(x * 0.3) * 0.15 + Math.cos(y * 0.25) * 0.1)
+    }
+  }
+  geo.computeVertexNormals()
+  if (!geo.attributes.uv2) geo.setAttribute('uv2', geo.attributes.uv)
+
+  let mat
+  if (pbrTex?.grass?.map) {
+    mat = makePBRMaterial(pbrTex.grass, { repeatX: 8, repeatY: 8, color: '#ffffff', extra: { roughness: 0.95 } })
+  } else {
+    mat = new THREE.MeshStandardMaterial({ color: '#3d6e30', roughness: 0.95 })
+  }
+
+  const ground = new THREE.Mesh(geo, mat)
+  ground.rotation.x = -Math.PI / 2
+  ground.receiveShadow = true
+  return ground
+}
 
 const TYP_LABELS = {
   sedlova: 'Sedlová', valbova: 'Valbová', pultova: 'Pultová', stanova: 'Stanová',
@@ -133,18 +162,24 @@ export default function RoofPreview3D({
   krytina = 'bobrovka', roztecKrokvi = 900, defaultView = 'stecha', krovTyp,
   vikyre = [], stresniOkna = [],
   kridloSirka = 4, kridloDelka = 6, kridloOffset = 0,
+  roofColor: roofColorProp, onRoofColorChange,
 }) {
   const mountRef   = useRef(null)
   const stateRef   = useRef({})
   const colorRef   = useRef('#ffffff')
   const autoRotRef = useRef(null)
+  const texturesRef = useRef(null)
 
   const [viewMode,   setViewMode]   = useState(defaultView)
-  const [roofColor,  setRoofColor]  = useState('#ffffff')
+  const [internalColor, setInternalColor] = useState('#ffffff')
+  const roofColor    = roofColorProp !== undefined ? roofColorProp : internalColor
+  const setRoofColor = onRoofColorChange || setInternalColor
   const [initError,  setInitError]  = useState(null)
   const [dims,       setDims]       = useState(null)
   const [labelPos,   setLabelPos]   = useState([])
   const [showLabels, setShowLabels] = useState(true)
+  const [texturesReady, setTexturesReady] = useState(false)
+  const [loadProgress,  setLoadProgress]  = useState(0)
 
   // ── Three.js setup ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -162,7 +197,7 @@ export default function RoofPreview3D({
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
       renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.05
+      renderer.toneMappingExposure = 1.2
       renderer.outputColorSpace = THREE.SRGBColorSpace
       el.appendChild(renderer.domElement)
 
@@ -182,45 +217,40 @@ export default function RoofPreview3D({
       controls = addControls(camera, renderer.domElement, { x: 0, y: 3, z: 0 })
 
       // Světla
-      scene.add(new THREE.AmbientLight(0xcce8f4, 0.80))
-      const sun = new THREE.DirectionalLight(0xfff8e8, 2.8)
-      sun.position.set(16, 26, 12); sun.castShadow = true
-      sun.shadow.mapSize.set(2048, 2048)
-      sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 140
-      sun.shadow.camera.left = -35; sun.shadow.camera.right = 35
-      sun.shadow.camera.top = 35; sun.shadow.camera.bottom = -35
-      sun.shadow.bias = -0.0005
-      scene.add(sun)
-      const fill = new THREE.DirectionalLight(0x88b8d8, 0.60)
-      fill.position.set(-10, 6, -8); scene.add(fill)
-      const back = new THREE.DirectionalLight(0xd0e8ff, 0.25)
-      back.position.set(0, 4, -20); scene.add(back)
+      const ambient = new THREE.AmbientLight(0xfff4e0, 0.4)
+      scene.add(ambient)
 
-      // Terén
-      const gC = document.createElement('canvas'); gC.width = 512; gC.height = 512
-      const gc = gC.getContext('2d')
-      gc.fillStyle = '#3d6e30'; gc.fillRect(0, 0, 512, 512)
-      for (let i = 0; i < 4000; i++) {
-        const x = (Math.sin(i * 7.3) * 0.5 + 0.5) * 512
-        const y = (Math.sin(i * 3.1) * 0.5 + 0.5) * 512
-        const l = 30 + (Math.sin(i * 2.7) * 0.5 + 0.5) * 20
-        gc.fillStyle = `hsl(120,40%,${l}%)`
-        gc.fillRect(x, y, 2, 3)
+      const sun = new THREE.DirectionalLight(0xfff8e7, 2.5)
+      sun.position.set(15, 25, 10); sun.castShadow = true
+      sun.shadow.mapSize.width  = 4096
+      sun.shadow.mapSize.height = 4096
+      sun.shadow.camera.near = 0.1; sun.shadow.camera.far = 100
+      sun.shadow.camera.left = -20; sun.shadow.camera.right = 20
+      sun.shadow.camera.top  =  20; sun.shadow.camera.bottom = -20
+      sun.shadow.bias = -0.001
+      scene.add(sun)
+
+      const hemi = new THREE.HemisphereLight(0x87ceeb, 0x4a7c59, 0.6)
+      scene.add(hemi)
+
+      const fill = new THREE.DirectionalLight(0xc8e8ff, 0.4)
+      fill.position.set(-10, 10, -5)
+      scene.add(fill)
+
+      // Terén — vykreslí se až po načtení PBR textur (viz loadAllPBRTextures níže)
+      let groundMesh = null
+
+      // ── Načtení PBR textur z Poly Haven (LoadingManager + progress) ─────────
+      const manager = new THREE.LoadingManager()
+      manager.onProgress = (_url, loaded, total) => {
+        setLoadProgress(total > 0 ? Math.round((loaded / total) * 100) : 0)
       }
-      for (let gy = 0; gy < 512; gy += 16) {
-        gc.fillStyle = 'rgba(0,0,0,0.04)'
-        gc.fillRect(0, gy, 512, 1)
-      }
-      const gTex = new THREE.CanvasTexture(gC)
-      gTex.wrapS = gTex.wrapT = THREE.RepeatWrapping
-      gTex.repeat.set(12, 12)
-      const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(160, 160, 4, 4),
-        new THREE.MeshStandardMaterial({ map: gTex, roughness: 0.95 })
-      )
-      ground.rotation.x = -Math.PI / 2
-      ground.receiveShadow = true
-      scene.add(ground)
+      loadAllPBRTextures(manager, renderer).then((tex) => {
+        texturesRef.current = tex
+        groundMesh = buildTerrain(tex)
+        scene.add(groundMesh)
+        setTexturesReady(true)
+      })
 
       // Animační smyčka
       let frameCount = 0
@@ -305,7 +335,8 @@ export default function RoofPreview3D({
   // ── Rebuild geometrie ───────────────────────────────────────────────────────
   useEffect(() => {
     const { scene, camera, controls } = stateRef.current
-    if (!scene) return
+    if (!scene || !texturesReady) return
+    const pbrTex = texturesRef.current
 
     scene.children.filter(c => c.userData.building).forEach(c => {
       scene.remove(c)
@@ -321,7 +352,7 @@ export default function RoofPreview3D({
     const slRad = sl * Math.PI / 180
     const h = (s / 2) * Math.tan(slRad)
 
-    const building = buildBuilding(s, d, wH, h)
+    const building = buildBuilding(s, d, wH, h, pbrTex)
     building.userData.building = true
 
     const roofParams = { sirka: s, delka: d, sklon: sl, presahOkap: po, wallHeight: wH }
@@ -335,7 +366,7 @@ export default function RoofPreview3D({
       scene.add(building)
       const roof = buildRoofScene(
         typ, s, d, sklon, presahOkap, presahStit, wH, krytina, colorRef.current,
-        { kridloSirka, kridloDelka, kridloOffset }
+        { kridloSirka, kridloDelka, kridloOffset }, pbrTex
       )
       roof.userData.building = true
       scene.add(roof)
@@ -344,7 +375,7 @@ export default function RoofPreview3D({
       if (Array.isArray(vikyre)) {
         vikyre.forEach(v => {
           try {
-            const dg = buildDormer(v, roofParams)
+            const dg = buildDormer(v, roofParams, pbrTex)
             dg.userData.building = true
             scene.add(dg)
           } catch (e) { console.warn('buildDormer error', e) }
@@ -398,16 +429,16 @@ export default function RoofPreview3D({
     ]
 
   }, [typ, sirka, delka, sklon, presahOkap, presahStit, vyskaZdi, krytina, roztecKrokvi, viewMode, krovTyp,
-      vikyre, stresniOkna, kridloSirka, kridloDelka, kridloOffset])
+      vikyre, stresniOkna, kridloSirka, kridloDelka, kridloOffset, texturesReady])
 
-  // ── Reakce na změnu barvy ───────────────────────────────────────────────────
+  // ── Reakce na změnu barvy krytiny (jen materiály otagované jako krytina) ────
   useEffect(() => {
     colorRef.current = roofColor
     const { scene } = stateRef.current
     if (!scene) return
     scene.children.filter(c => c.userData.building).forEach(c => {
       c.traverse(o => {
-        if (o.isMesh && o.material?.map) {
+        if (o.isMesh && o.material?.userData?.isKrytina) {
           o.material.color = new THREE.Color(roofColor)
           o.material.needsUpdate = true
         }
@@ -434,6 +465,23 @@ export default function RoofPreview3D({
       style={{ height: 430, background: '#1a4fa8', cursor: 'grab' }}>
 
       <div ref={mountRef} className="w-full h-full" />
+
+      {/* Loading overlay — dokud se nenačtou PBR textury */}
+      {!texturesReady && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+          style={{ background: 'rgba(10,20,40,0.92)', zIndex: 20 }}>
+          <div className="text-sm font-semibold" style={{ color: '#e0f0ff' }}>
+            Načítám realistické textury…
+          </div>
+          <div className="rounded-full overflow-hidden" style={{ width: 200, height: 8, background: 'rgba(255,255,255,0.15)' }}>
+            <div style={{
+              width: `${loadProgress}%`, height: '100%', background: '#2563eb',
+              transition: 'width 0.2s ease',
+            }} />
+          </div>
+          <div className="text-xs" style={{ color: 'rgba(200,220,255,0.75)' }}>{loadProgress}%</div>
+        </div>
+      )}
 
       {/* Popisky rozměrů */}
       {showLabels && viewMode === 'stecha' && labelPos.map(lp => (

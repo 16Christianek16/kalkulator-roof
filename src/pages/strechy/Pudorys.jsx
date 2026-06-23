@@ -8,6 +8,7 @@ import InputField from '../../components/ui/InputField'
 import ResultCard from '../../components/ui/ResultCard'
 import ZakazkaModal from '../../components/ui/ZakazkaModal'
 import Preview3DErrorBoundary from '../../components/ui/Preview3DErrorBoundary'
+import KrytinaColorPicker from '../../components/ui/KrytinaColorPicker'
 import { useRoofStore } from '../../store/roofStore'
 import { krytinyOptions, getKrytina } from '../../data/krytiny'
 import { formatNum } from '../../utils/calculations'
@@ -715,6 +716,7 @@ export default function Pudorys() {
   const [view3d,    setView3d]    = useState(false)
   const [drawTab,   setDrawTab]   = useState('pudorys')
   const [pudorysView, setPudorysView] = useState('strecha')
+  const [krytinaColor, setKrytinaColor] = useState('#ffffff')
   const [csvError,  setCsvError]  = useState('')
   const [showVikyre,  setShowVikyre]  = useState(true)
   const [showOkna,    setShowOkna]    = useState(true)
@@ -888,7 +890,7 @@ export default function Pudorys() {
             </div>
           }>
             {view3d && (
-              <div className="mb-3">
+              <div className="mb-3 flex flex-col gap-3">
                 <select value={krytina} onChange={e => setKrytina(e.target.value)}
                   className="select-field text-xs" style={{ maxWidth: 280 }}>
                   {krytinyOptions().map(({ kategorie, items }) => (
@@ -897,6 +899,7 @@ export default function Pudorys() {
                     </optgroup>
                   ))}
                 </select>
+                <KrytinaColorPicker value={krytinaColor} onChange={setKrytinaColor} />
               </div>
             )}
             {view3d ? (
@@ -911,7 +914,8 @@ export default function Pudorys() {
                     presahOkap={presahOkap} presahStit={presahStit} vyskaZdi={vyskaZdi}
                     krytina={krytina} roztecKrokvi={roztecKrokvi}
                     vikyre={vikyre} stresniOkna={stresniOkna}
-                    kridloSirka={kridloSirka} kridloDelka={kridloDelka} kridloOffset={kridloOffset} />
+                    kridloSirka={kridloSirka} kridloDelka={kridloDelka} kridloOffset={kridloOffset}
+                    roofColor={krytinaColor} onRoofColorChange={setKrytinaColor} />
                 </Suspense>
               </Preview3DErrorBoundary>
             ) : (
@@ -970,10 +974,12 @@ export default function Pudorys() {
 
         {/* VIKÝŘE */}
         <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#dde3ea', background: '#fff' }}>
-          <button
-            className="w-full flex items-center justify-between px-5 py-3.5 border-b font-semibold text-sm"
+          <div
+            role="button" tabIndex={0}
+            className="w-full flex items-center justify-between px-5 py-3.5 border-b font-semibold text-sm cursor-pointer"
             style={{ borderColor: '#dde3ea', background: '#f8fafc', color: '#1e3a5f' }}
-            onClick={() => setShowVikyre(v => !v)}>
+            onClick={() => setShowVikyre(v => !v)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setShowVikyre(v => !v) }}>
             <span className="flex items-center gap-2">
               🏘 Vikýře
               {vikyre.length > 0 && (
@@ -990,7 +996,7 @@ export default function Pudorys() {
               </button>
               {showVikyre ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </div>
-          </button>
+          </div>
 
           {showVikyre && (
             <div className="p-4 flex flex-col gap-3">
@@ -1063,10 +1069,12 @@ export default function Pudorys() {
 
         {/* STŘEŠNÍ OKNA */}
         <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#dde3ea', background: '#fff' }}>
-          <button
-            className="w-full flex items-center justify-between px-5 py-3.5 border-b font-semibold text-sm"
+          <div
+            role="button" tabIndex={0}
+            className="w-full flex items-center justify-between px-5 py-3.5 border-b font-semibold text-sm cursor-pointer"
             style={{ borderColor: '#dde3ea', background: '#f8fafc', color: '#1e3a5f' }}
-            onClick={() => setShowOkna(v => !v)}>
+            onClick={() => setShowOkna(v => !v)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setShowOkna(v => !v) }}>
             <span className="flex items-center gap-2">
               🪟 Střešní okna (Velux)
               {stresniOkna.length > 0 && (
@@ -1083,7 +1091,7 @@ export default function Pudorys() {
               </button>
               {showOkna ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </div>
-          </button>
+          </div>
 
           {showOkna && (
             <div className="p-4 flex flex-col gap-3">
