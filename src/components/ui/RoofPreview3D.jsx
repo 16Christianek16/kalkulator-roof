@@ -363,12 +363,22 @@ export default function RoofPreview3D({
 
     if (viewMode === 'krov') {
       // ── Krov: jen exponovaná konstrukce (krokve, vaznice, laťování) ────────
-      const krov = buildKrov(krovTyp || typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi)
+      const krov = buildKrov(krovTyp || typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi, krytina)
       krov.userData.building = true
       scene.add(krov)
+
+      if (Array.isArray(vikyre)) {
+        vikyre.forEach(v => {
+          try {
+            const dg = buildDormer(v, roofParams, pbrTex, krytina, colorRef.current, true)
+            dg.userData.building = true
+            scene.add(dg)
+          } catch (e) { console.warn('buildDormer error', e) }
+        })
+      }
     } else if (viewMode === 'klempir') {
       // ── Klempíř: exponovaná konstrukce + kompletní klempířina navrch ───────
-      const krov = buildKrov(krovTyp || typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi)
+      const krov = buildKrov(krovTyp || typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi, krytina)
       krov.userData.building = true
       scene.add(krov)
 
@@ -381,14 +391,15 @@ export default function RoofPreview3D({
       if (Array.isArray(vikyre)) {
         vikyre.forEach(v => {
           try {
-            const dg = buildDormer(v, roofParams, pbrTex, krytina, colorRef.current)
+            const dg = buildDormer(v, roofParams, pbrTex, krytina, colorRef.current, true)
             dg.userData.building = true
             scene.add(dg)
           } catch (e) { console.warn('buildDormer error', e) }
         })
       }
     } else {
-      // ── Střecha: hotová krytina, vikýře, střešní okna ──────────────────────
+      // ── Střecha: hotová krytina + veškeré oplechování (komín, úžlabí, žlaby,
+      // svody) + vikýře + střešní okna — kompletní hotový vzhled střechy.
       const roof = buildRoofScene(
         typ, s, d, sklon, presahOkap, presahStit, wH, krytina, colorRef.current,
         { kridloSirka, kridloDelka, kridloOffset }, pbrTex
@@ -396,10 +407,16 @@ export default function RoofPreview3D({
       roof.userData.building = true
       scene.add(roof)
 
+      try {
+        const kl = buildKlempirsky(typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi, vikyre, krytina)
+        kl.userData.building = true
+        scene.add(kl)
+      } catch (e) { console.warn('buildKlempirsky error', e) }
+
       if (Array.isArray(vikyre)) {
         vikyre.forEach(v => {
           try {
-            const dg = buildDormer(v, roofParams, pbrTex, krytina, colorRef.current)
+            const dg = buildDormer(v, roofParams, pbrTex, krytina, colorRef.current, false)
             dg.userData.building = true
             scene.add(dg)
           } catch (e) { console.warn('buildDormer error', e) }
