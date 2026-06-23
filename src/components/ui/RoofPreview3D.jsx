@@ -197,7 +197,7 @@ export default function RoofPreview3D({
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
       renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.2
+      renderer.toneMappingExposure = 1.0
       renderer.outputColorSpace = THREE.SRGBColorSpace
       el.appendChild(renderer.domElement)
 
@@ -216,11 +216,13 @@ export default function RoofPreview3D({
       const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 500)
       controls = addControls(camera, renderer.domElement, { x: 0, y: 3, z: 0 })
 
-      // Světla
-      const ambient = new THREE.AmbientLight(0xfff4e0, 0.4)
+      // Světla — vyvážené tak, aby teplé přímé světlo dominovalo a nebylo
+      // přebito chladnými (namodralými) výplňovými složkami, jinak se barva
+      // reálné krytiny (terakota) vyplaví do šeda.
+      const ambient = new THREE.AmbientLight(0xfff4e0, 0.45)
       scene.add(ambient)
 
-      const sun = new THREE.DirectionalLight(0xfff8e7, 2.5)
+      const sun = new THREE.DirectionalLight(0xfff8e7, 2.6)
       sun.position.set(15, 25, 10); sun.castShadow = true
       sun.shadow.mapSize.width  = 4096
       sun.shadow.mapSize.height = 4096
@@ -230,10 +232,10 @@ export default function RoofPreview3D({
       sun.shadow.bias = -0.001
       scene.add(sun)
 
-      const hemi = new THREE.HemisphereLight(0x87ceeb, 0x4a7c59, 0.6)
+      const hemi = new THREE.HemisphereLight(0xcfe0ee, 0x9c8a6a, 0.20)
       scene.add(hemi)
 
-      const fill = new THREE.DirectionalLight(0xc8e8ff, 0.4)
+      const fill = new THREE.DirectionalLight(0xfff0d8, 0.15)
       fill.position.set(-10, 10, -5)
       scene.add(fill)
 
@@ -357,13 +359,36 @@ export default function RoofPreview3D({
 
     const roofParams = { sirka: s, delka: d, sklon: sl, presahOkap: po, wallHeight: wH }
 
+    scene.add(building)
+
     if (viewMode === 'krov') {
-      scene.add(building)
+      // ── Krov: jen exponovaná konstrukce (krokve, vaznice, laťování) ────────
       const krov = buildKrov(krovTyp || typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi)
       krov.userData.building = true
       scene.add(krov)
+    } else if (viewMode === 'klempir') {
+      // ── Klempíř: exponovaná konstrukce + kompletní klempířina navrch ───────
+      const krov = buildKrov(krovTyp || typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi)
+      krov.userData.building = true
+      scene.add(krov)
+
+      try {
+        const kl = buildKlempirsky(typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi, vikyre, krytina)
+        kl.userData.building = true
+        scene.add(kl)
+      } catch (e) { console.warn('buildKlempirsky error', e) }
+
+      if (Array.isArray(vikyre)) {
+        vikyre.forEach(v => {
+          try {
+            const dg = buildDormer(v, roofParams, pbrTex, krytina, colorRef.current)
+            dg.userData.building = true
+            scene.add(dg)
+          } catch (e) { console.warn('buildDormer error', e) }
+        })
+      }
     } else {
-      scene.add(building)
+      // ── Střecha: hotová krytina, vikýře, střešní okna ──────────────────────
       const roof = buildRoofScene(
         typ, s, d, sklon, presahOkap, presahStit, wH, krytina, colorRef.current,
         { kridloSirka, kridloDelka, kridloOffset }, pbrTex
@@ -371,18 +396,16 @@ export default function RoofPreview3D({
       roof.userData.building = true
       scene.add(roof)
 
-      // Vikýře
       if (Array.isArray(vikyre)) {
         vikyre.forEach(v => {
           try {
-            const dg = buildDormer(v, roofParams, pbrTex)
+            const dg = buildDormer(v, roofParams, pbrTex, krytina, colorRef.current)
             dg.userData.building = true
             scene.add(dg)
           } catch (e) { console.warn('buildDormer error', e) }
         })
       }
 
-      // Střešní okna
       if (Array.isArray(stresniOkna)) {
         stresniOkna.forEach(o => {
           try {
@@ -391,15 +414,6 @@ export default function RoofPreview3D({
             scene.add(og)
           } catch (e) { console.warn('buildRoofWindow error', e) }
         })
-      }
-
-      // Klempířina
-      if (viewMode === 'klempir') {
-        try {
-          const kl = buildKlempirsky(typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi, vikyre, krytina)
-          kl.userData.building = true
-          scene.add(kl)
-        } catch (e) { console.warn('buildKlempirsky error', e) }
       }
     }
 
@@ -557,7 +571,7 @@ export default function RoofPreview3D({
       </div>
 
       {/* Vikýře + okna badge */}
-      {(viewMode === 'stecha' || viewMode === 'klempir') && (vikyre.length > 0 || stresniOkna.length > 0) && (
+      {(viewMode === 'stecha' || viewMode === 'klempir') && (vikyre.length > 0 || (viewMode === 'stecha' && stresniOkna.length > 0)) && (
         <div className="absolute top-12 left-3 flex flex-col gap-1">
           {vikyre.length > 0 && (
             <div className="px-2 py-1 rounded-lg text-xs font-semibold"
@@ -565,7 +579,7 @@ export default function RoofPreview3D({
               🏘 {vikyre.length} vikýř{vikyre.length > 1 ? 'e' : ''}
             </div>
           )}
-          {stresniOkna.length > 0 && (
+          {viewMode === 'stecha' && stresniOkna.length > 0 && (
             <div className="px-2 py-1 rounded-lg text-xs font-semibold"
               style={{ background: 'rgba(15,23,42,0.72)', color: '#e0f0ff' }}>
               🪟 {stresniOkna.length} okno{stresniOkna.length > 1 ? 'na' : ''}

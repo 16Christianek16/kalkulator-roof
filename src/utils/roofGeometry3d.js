@@ -1283,7 +1283,48 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
     default: buildSedlova()
   }
 
+  addBattens(group, d, s, po, ps, wH, h, slRad)
+
   return group
+}
+
+// ── Laťování / bednění — mřížka kontralatí (po sklonu) a latí (po hřebeni) ──
+// Viditelná hustá mřížka přes krokve, jak je vidět na referenčních fotkách krovu.
+function addBattens(group, d, s, po, ps, wH, h, slRad) {
+  const counterMat = new THREE.MeshStandardMaterial({ color: 0xb89060, roughness: 0.85 })
+  const battenMat  = new THREE.MeshStandardMaterial({ color: 0xc9a876, roughness: 0.82 })
+  const hw = s / 2 + po, hd = d / 2 + ps
+  const cosA = Math.cos(slRad)
+  const slopeLen = Math.sqrt(hw * hw + h * h)
+
+  // Kontralatě — podél krokví (od okapu k hřebeni), rozmístěné po délce budovy
+  const KL_W = 0.04, KL_H = 0.03
+  const nKontra = Math.max(4, Math.round((2 * hd) / 0.9))
+  for (let i = 0; i <= nKontra; i++) {
+    const x = -hd + i * (2 * hd) / nKontra
+    ;[-1, 1].forEach(sign => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(KL_W, KL_H, slopeLen), counterMat)
+      m.rotation.x = -sign * slRad
+      m.position.set(x, wH + h / 2 + cosA * (KL_H / 2 + 0.005), sign * hw / 2)
+      m.castShadow = true
+      group.add(m)
+    })
+  }
+
+  // Latě — příčné, rovnoběžné s okapem, v rozteči ~0.35 m od okapu k hřebeni
+  const LT_H = 0.03, rozted = 0.35
+  const nRows = Math.max(3, Math.floor(slopeLen / rozted))
+  for (let r = 0; r <= nRows; r++) {
+    const t = r / nRows
+    ;[-1, 1].forEach(sign => {
+      const z = sign * hw * (1 - t)
+      const y = wH + h * t + cosA * (KL_H + LT_H / 2 + 0.01)
+      const m = new THREE.Mesh(new THREE.BoxGeometry(2 * hd, LT_H, 0.05), battenMat)
+      m.position.set(0, y, z)
+      m.castShadow = true
+      group.add(m)
+    })
+  }
 }
 
 // ─── Pultový vikýř — kompletní viditelná tesařská konstrukce ─────────────────
@@ -1449,7 +1490,7 @@ function buildPultovyVikyr(group, opts) {
 }
 
 // ─── Vikýř (dormer) ──────────────────────────────────────────────────────────
-export function buildDormer(vikyf, { sirka, delka, sklon, presahOkap, wallHeight = 2.7 }, pbrTex = null) {
+export function buildDormer(vikyf, { sirka, delka, sklon, presahOkap, wallHeight = 2.7 }, pbrTex = null, krytina = '', roofColor = '#ffffff') {
   const s      = Math.max(parseFloat(sirka) || 8, 2)
   const d      = Math.max(parseFloat(delka) || 12, 2)
   const po     = Math.max(parseFloat(presahOkap) || 0.3, 0)
@@ -1482,7 +1523,6 @@ export function buildDormer(vikyf, { sirka, delka, sklon, presahOkap, wallHeight
   const group   = new THREE.Group()
   const wMat    = wallMaterial(pbrTex)
   const gMat    = new THREE.MeshStandardMaterial({ color: 0x7ec8e3, opacity: 0.45, transparent: true, roughness: 0.1 })
-  const rMat    = new THREE.MeshStandardMaterial({ color: 0x5a2e10, roughness: 0.85 })
   const fMat    = new THREE.MeshStandardMaterial({ color: 0x4a3020, roughness: 0.8 })
   const kMat    = woodMaterial(false, pbrTex)
   const vMat    = new THREE.MeshStandardMaterial({ color: 0x7a9ab0, metalness: 0.85, roughness: 0.15 })
@@ -1496,9 +1536,30 @@ export function buildDormer(vikyf, { sirka, delka, sklon, presahOkap, wallHeight
     return group
   }
 
-  // ── Přední stěna vikýře (VERTIKÁLNÍ) — sedlový vikýř ───────────────────────
-  const fwZ = zBase + sign * 0.10   // mírně vysunutá před svah
-  const fw  = new THREE.Mesh(new THREE.BoxGeometry(dw, dh, 0.18), wMat)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEDLOVÝ VIKÝŘ — hřeben vede OD ČELA DOZADU (kolmo na hlavní hřeben),
+  // štítová stěna s oknem je vpředu, střecha se sklání doleva/doprava.
+  // Celá hmota vikýře je "vytažena" podél sklonu hlavní střechy (slopeDir),
+  // takže boční stěny i okapy korektně dosedají na hlavní střešní rovinu.
+  // ═══════════════════════════════════════════════════════════════════════════
+  const fwZ      = zBase + sign * 0.10        // rovina čelní stěny (mírně před svahem)
+  const wallTopY = yBase + dh                  // úroveň okapu vikýře (horní hrana stěny)
+  const peakH    = dw * 0.32                   // výška štítového vrcholu nad okapem
+  const ridgeY   = wallTopY + peakH            // výška hřebene vpředu
+  const overhang = 0.12                        // přesah střechy (boční i čelní)
+
+  // Zadní (vzdálenější) body — celá hmota posunuta podél hlavního sklonu
+  const ridgeZBack = zBack + sign * 0.10
+  const ridgeYBack = ridgeY + depthY
+  const eaveYBack  = wallTopY + depthY
+
+  const roofMat = getKrytinaMaterial(krytina, roofColor, pbrTex)
+  applyRepeat(roofMat, 1, 1)
+  const ridgeCapMat = new THREE.MeshStandardMaterial({ color: 0x3a0f00, roughness: 0.85 })
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0x3a1a05, roughness: 0.85 })
+
+  // ── Čelní stěna (vertikální, s oknem) ──────────────────────────────────────
+  const fw = new THREE.Mesh(new THREE.BoxGeometry(dw, dh, 0.18), wMat)
   fw.position.set(posX, yBase + dh / 2, fwZ)
   fw.castShadow = true; fw.receiveShadow = true
   group.add(fw)
@@ -1511,58 +1572,63 @@ export function buildDormer(vikyf, { sirka, delka, sklon, presahOkap, wallHeight
   wfr.position.set(posX, yBase + dh * 0.55, fwZ + sign * 0.05)
   group.add(wg, wfr)
 
-  // ── Boční stěny vikýře (sledují sklon hlavní střechy) ─────────────────────
-  const slopeDirZ = zBack - zBase
-  const cheekLen  = Math.sqrt(slopeDirZ ** 2 + depthY ** 2)
-  const slopeDir  = new THREE.Vector3(0, depthY, slopeDirZ).normalize()
+  // ── Štítový trojúhelník (vertikální, nad oknem) ────────────────────────────
+  group.add(meshFrom(tri(
+    [posX - dw / 2, wallTopY, fwZ],
+    [posX + dw / 2, wallTopY, fwZ],
+    [posX, ridgeY, fwZ],
+  ), wMat.clone()))
 
+  // ── Boční stěny (rovnoběžník podél hlavního sklonu) ────────────────────────
   ;[-1, 1].forEach(side => {
-    const cx   = posX + side * (dw / 2 + 0.075)
-    const midZ = (zBase + zBack) / 2 + sign * sinA * dh / 4
-    const midY = (yBase + yBack) / 2 + cosA * dh / 4
-    const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.15, dh, cheekLen), wMat)
-    cheek.position.set(cx, midY, midZ)
-    cheek.setRotationFromQuaternion(
-      new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), slopeDir)
-    )
-    cheek.castShadow = true
-    group.add(cheek)
+    const x = posX + side * dw / 2
+    group.add(meshFrom(quad(
+      [x, yBase, zBase],
+      [x, yBack, zBack],
+      [x, eaveYBack, ridgeZBack],
+      [x, wallTopY, fwZ],
+    ), wMat.clone()))
   })
 
-  // ── Střecha vikýře ────────────────────────────────────────────────────────
-  const rH     = dw * 0.30
-  const ridgeY = yBase + dh + rH
-  const ridgeZ = zBase
+  // ── Střecha — dvě rovinné plochy se skutečnou krytinou ─────────────────────
+  const ridgeFrontOvh = [posX, ridgeY, fwZ + sign * overhang]
+  const ridgeBackPt   = [posX, ridgeYBack, ridgeZBack]
 
-  {
-    const fwdD = 0.40             // přesah vpřed
-    const bkD  = depthZ + 0.12   // dozadu ke krokvi
+  ;[-1, 1].forEach(side => {
+    const ex = posX + side * (dw / 2 + overhang)
+    const eaveFrontOvh = [ex, wallTopY, fwZ + sign * overhang]
+    const eaveBackPt   = [ex, eaveYBack, ridgeZBack]
+    group.add(meshFrom(quad(eaveFrontOvh, ridgeFrontOvh, ridgeBackPt, eaveBackPt), roofMat))
 
-    const addPanel = (D, fwd) => {
-      const len = Math.sqrt(D ** 2 + rH ** 2)
-      const ang = Math.atan2(rH, D)
-      const p   = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.12, 0.07, len), rMat)
-      const dir = fwd ? sign : -sign
-      p.rotation.x = -dir * ang
-      p.position.set(posX, ridgeY - rH / 2, ridgeZ + dir * D / 2)
-      p.castShadow = true
-      group.add(p)
-    }
-    addPanel(fwdD, true)
-    addPanel(bkD,  false)
+    // Okapní/štítová lišta podél boční hrany střechy
+    const edgeLen = Math.sqrt(depthSl ** 2 + (overhang * 2) ** 2)
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.05, edgeLen), trimMat)
+    trim.position.set(ex, (wallTopY + eaveYBack) / 2 - 0.02, (fwZ + ridgeZBack) / 2)
+    trim.setRotationFromQuaternion(
+      new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1),
+        new THREE.Vector3(0, eaveYBack - wallTopY, ridgeZBack - fwZ).normalize())
+    )
+    trim.castShadow = true
+    group.add(trim)
+  })
 
-    const rs = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.12, 0.07, 0.12), rMat)
-    rs.position.set(posX, ridgeY, ridgeZ)
-    rs.castShadow = true
-    group.add(rs)
-  }
+  // Hřebenová lišta (hřebenáč)
+  const ridgeLen = Math.sqrt(depthSl ** 2 + (overhang) ** 2)
+  const ridgeCap = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.07, ridgeLen + 0.08), ridgeCapMat)
+  ridgeCap.position.set(posX, ridgeY + 0.02, (fwZ + ridgeZBack) / 2)
+  ridgeCap.setRotationFromQuaternion(
+    new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, ridgeYBack - ridgeY, ridgeZBack - fwZ).normalize())
+  )
+  ridgeCap.castShadow = true
+  group.add(ridgeCap)
 
-  // ── Krovové prvky vikýře ───────────────────────────────────────────────────
-  const addKrokev = (p1, p2) => {
+  // ── Krovové prvky vikýře (viditelné zevnitř/zespodu) ───────────────────────
+  const addKrokev = (p1, p2, bw = 0.06, bh = 0.12) => {
     const dir = new THREE.Vector3(p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2])
     const len = dir.length()
     if (len < 0.05) return
-    const m = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, len), kMat)
+    const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, len), kMat)
     m.position.set((p1[0]+p2[0])/2, (p1[1]+p2[1])/2, (p1[2]+p2[2])/2)
     m.setRotationFromQuaternion(
       new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), dir.clone().normalize())
@@ -1571,34 +1637,37 @@ export function buildDormer(vikyf, { sirka, delka, sklon, presahOkap, wallHeight
     group.add(m)
   }
 
-  addKrokev([posX - dw/2 - 0.06, ridgeY, ridgeZ], [posX + dw/2 + 0.06, ridgeY, ridgeZ])
-  ;[-1, 1].forEach(side => {
-    const xS = posX + side * dw / 2
-    addKrokev([xS, yBase + dh, zBase], [xS, ridgeY, ridgeZ])
-    addKrokev([xS, yBase, zBack],      [xS, ridgeY, ridgeZ])
-    addKrokev([xS, yBase, zBase],      [xS, yBase,  zBack])
+  // Hřebenová vaznice vikýře (vpředu dozadu)
+  addKrokev([posX, ridgeY, fwZ], [posX, ridgeYBack, ridgeZBack], 0.08, 0.10)
+  // Krokve od hřebene k bočním okapům — přední a zadní pár
+  ;[0, 1].forEach(t => {
+    const rz = fwZ + t * (ridgeZBack - fwZ)
+    const ry = ridgeY + t * (ridgeYBack - ridgeY)
+    ;[-1, 1].forEach(side => {
+      const ex = posX + side * (dw / 2 + overhang)
+      const ey = wallTopY + t * (eaveYBack - wallTopY)
+      addKrokev([posX, ry, rz], [ex, ey, rz])
+    })
   })
 
-  // ── Úžlabní plechy sedlového vikýře ────────────────────────────────────────
-  if (typ === 'sedlovy') {
-    ;[-1, 1].forEach(side => {
-      const vSX = posX + side * dw / 2
-      const vDX = side * 0.55
-      const vDY = -tanA * 0.65
-      const vDZ = -sign * 0.70
-      const vLen = Math.sqrt(vDX**2 + vDY**2 + vDZ**2)
-      const vm = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.012, vLen), vMat)
-      vm.position.set(vSX + vDX/2, yBack + vDY/2, zBack + vDZ/2)
-      vm.setRotationFromQuaternion(
-        new THREE.Quaternion().setFromUnitVectors(
-          new THREE.Vector3(0, 0, 1),
-          new THREE.Vector3(vDX, vDY, vDZ).normalize()
-        )
+  // ── Úžlabní plechy — kde vikýř ústí do hlavní střechy ──────────────────────
+  ;[-1, 1].forEach(side => {
+    const vSX = posX + side * dw / 2
+    const vDX = side * 0.55
+    const vDY = -tanA * 0.65
+    const vDZ = -sign * 0.70
+    const vLen = Math.sqrt(vDX**2 + vDY**2 + vDZ**2)
+    const vm = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.012, vLen), vMat)
+    vm.position.set(vSX + vDX/2, yBack + vDY/2, zBack + vDZ/2)
+    vm.setRotationFromQuaternion(
+      new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 0, 1),
+        new THREE.Vector3(vDX, vDY, vDZ).normalize()
       )
-      vm.castShadow = true
-      group.add(vm)
-    })
-  }
+    )
+    vm.castShadow = true
+    group.add(vm)
+  })
 
   return group
 }
@@ -1720,6 +1789,17 @@ export function buildKlempirsky(typ, sirka, delka, sklon, presahOkap, presahStit
       elbow.position.set(sx, wH - 0.18, sz)
       elbow.rotation.set(Math.PI / 2, Math.sign(sz) * (-Math.PI / 6), 0)
       group.add(elbow)
+
+      // Objímky svodu (úchyty ve zdivu) — po cca 1,2 m po výšce svodu
+      const nObj = Math.max(2, Math.floor(svodH / 1.2))
+      for (let i = 1; i <= nObj; i++) {
+        const oy = svodH * (i / (nObj + 1))
+        const obj = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.012, 6, 10), hkMat.clone())
+        obj.position.set(sx, oy, sz - sign * 0.01)
+        obj.rotation.x = Math.PI / 2
+        obj.castShadow = true
+        group.add(obj)
+      }
     })
   })
 
