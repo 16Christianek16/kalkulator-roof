@@ -457,7 +457,7 @@ function DetailyTable({ krytina, sklon }) {
 const SVG_W = 560, SVG_H = 320
 const ML = 90, MT = 40, MR = 40, MB = 65
 
-function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi }) {
+function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi, view = 'strecha', vikyre = [], sklon = 35 }) {
   const s   = parseFloat(sirka)      || 8
   const d   = parseFloat(delka)      || 12
   const po  = parseFloat(presahOkap) || 0
@@ -478,6 +478,8 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
   const skutRoz = d / nMezery
   const showAll = nKrokvi <= 60
   const krokveX = Array.from({ length: nKrokvi }, (_, i) => bx + i * skutRoz * scale)
+
+  const isKrov = view === 'krov'
 
   const dimColor = '#475569'
   const AS = 6
@@ -505,6 +507,36 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
   // L/T půdorys jako složený tvar
   const isLT = typ === 'tvar-L' || typ === 'tvar-T'
 
+  // Barvy pro krov vs střecha pohled
+  const roofBg      = isKrov ? '#e8dcc8' : DC.roof
+  const roofOpacity = isKrov ? 0.65 : 0.82
+  const krokvaCol   = isKrov ? '#8b4513' : 'rgba(255,255,255,0.45)'
+  const krokvaW     = isKrov ? 2.5 : 1
+  const ridgeCol    = isKrov ? '#3a1005' : 'rgba(255,255,255,0.90)'
+  const pozedCol    = '#6b3010'
+
+  // Vikýře v půdorysu
+  const vikyreSVG = Array.isArray(vikyre) ? vikyre.map((v, idx) => {
+    const dw  = (v.sirka || 1.5) * scale
+    const ddepth = 0.90 * scale
+    const px  = (v.poziceX || 0) * (d / 2 - (v.sirka || 1.5) / 2 - 0.3)
+    const vcx = bx + (d / 2 + px) * scale
+    const front = (v.strana || 'predni') === 'predni'
+    const vy  = front ? by : by2
+    const vdy = front ? ddepth : -ddepth
+    return (
+      <g key={idx}>
+        <rect x={vcx - dw/2} y={front ? vy - ddepth : vy} width={dw} height={ddepth}
+          fill="rgba(200,230,255,0.55)" stroke="#1a6fc4" strokeWidth={1.2} rx={1} />
+        <line x1={vcx - dw/2} y1={front ? vy - ddepth/2 : vy + ddepth/2}
+              x2={vcx + dw/2} y2={front ? vy - ddepth/2 : vy + ddepth/2}
+              stroke="#1a6fc4" strokeWidth={0.7} strokeDasharray="3 2" />
+        <text x={vcx} y={front ? vy - ddepth - 3 : vy + ddepth + 10}
+          textAnchor="middle" fontSize={8} fill="#1a6fc4" fontWeight="600">V{idx+1}</text>
+      </g>
+    )
+  }) : []
+
   return (
     <svg width={SVG_W} height={SVG_H} style={{ display: 'block', background: DC.bg }}>
       {isLT ? (
@@ -512,12 +544,12 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
           {/* L/T tvar — zobrazit jako tvarový půdorys */}
           {typ === 'tvar-L' && (
             <path d={`M${ox},${oy} L${bx2},${oy} L${bx2},${ry} L${ox+drawL},${ry} L${ox+drawL},${oy+drawW} L${ox},${oy+drawW} Z`}
-              fill={DC.roof} fillOpacity={0.82} stroke={DC.ridge} strokeWidth={2} />
+              fill={roofBg} fillOpacity={roofOpacity} stroke={DC.ridge} strokeWidth={2} />
           )}
           {typ === 'tvar-T' && (() => {
             const tx1 = ox + drawL * 0.28, tx2 = ox + drawL * 0.72
             return <path d={`M${ox},${ry} L${tx1},${ry} L${tx1},${oy} L${tx2},${oy} L${tx2},${ry} L${ox+drawL},${ry} L${ox+drawL},${oy+drawW} L${ox},${oy+drawW} Z`}
-              fill={DC.roof} fillOpacity={0.82} stroke={DC.ridge} strokeWidth={2} />
+              fill={roofBg} fillOpacity={roofOpacity} stroke={DC.ridge} strokeWidth={2} />
           })()}
           <text x={cx} y={ry} textAnchor="middle" fontSize={11} fill="rgba(255,255,255,0.9)" fontWeight="700">
             {typ === 'tvar-L' ? 'L' : 'T'}
@@ -525,17 +557,24 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
         </>
       ) : (
         <>
-          <rect x={ox} y={oy} width={drawL} height={drawW} fill={DC.roof} fillOpacity={0.82} stroke={DC.ridge} strokeWidth={2} rx={1} />
+          <rect x={ox} y={oy} width={drawL} height={drawW} fill={roofBg} fillOpacity={roofOpacity} stroke={DC.ridge} strokeWidth={2} rx={1} />
           {(po > 0 || ps > 0) && (
             <rect x={bx} y={by} width={d * scale} height={s * scale}
               fill="#e8c0a8" fillOpacity={0.35} stroke="#c05020" strokeWidth={1.5} strokeDasharray="7 3" />
+          )}
+          {/* Krov pohled: pozednice */}
+          {isKrov && (
+            <>
+              <rect x={ox} y={oy}          width={drawL} height={6}  fill={pozedCol} fillOpacity={0.85} rx={1} />
+              <rect x={ox} y={oy+drawW-6}  width={drawL} height={6}  fill={pozedCol} fillOpacity={0.85} rx={1} />
+            </>
           )}
           {typ === 'pilova' && Array.from({ length: Math.max(2, Math.round(d / (s / 2))) }, (_, i) => {
             const segW = (d / Math.max(2, Math.round(d / (s / 2)))) * scale
             const x1 = bx + i * segW, x2 = x1 + segW
             return <g key={i}>
-              <line x1={x2} y1={by} x2={x1} y2={by2} stroke="rgba(255,255,255,0.7)" strokeWidth={1.8} />
-              <line x1={x2} y1={by2} x2={x2} y2={by} stroke="rgba(255,255,255,0.4)" strokeWidth={1} />
+              <line x1={x2} y1={by} x2={x1} y2={by2} stroke={krokvaCol} strokeWidth={1.8} />
+              <line x1={x2} y1={by2} x2={x2} y2={by} stroke={krokvaCol} strokeWidth={1} />
             </g>
           })}
           {typ === 'mansardova' && (
@@ -545,8 +584,8 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
           )}
           {showAll ? krokveX.map((x, i) => (
             <line key={i} x1={x} y1={oy} x2={x} y2={oy + drawW}
-              stroke="rgba(255,255,255,0.45)"
-              strokeWidth={i === 0 || i === nKrokvi - 1 ? 1.8 : 1} />
+              stroke={krokvaCol}
+              strokeWidth={i === 0 || i === nKrokvi - 1 ? (isKrov ? 3 : 1.8) : krokvaW} />
           )) : (
             <>
               {[0, 1, 2, Math.floor(nKrokvi/2)-1, Math.floor(nKrokvi/2), Math.floor(nKrokvi/2)+1, nKrokvi-3, nKrokvi-2, nKrokvi-1]
@@ -554,24 +593,24 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
                 .map(i => (
                   <line key={i} x1={bx + i * skutRoz * scale} y1={oy}
                     x2={bx + i * skutRoz * scale} y2={oy + drawW}
-                    stroke="rgba(255,255,255,0.4)" strokeWidth={1} />
+                    stroke={krokvaCol} strokeWidth={krokvaW} />
                 ))}
-              <text x={cx} y={ry - 8} textAnchor="middle" fontSize={9} fill="rgba(255,255,255,0.85)">
+              <text x={cx} y={ry - 8} textAnchor="middle" fontSize={9} fill={isKrov ? '#8b4513' : 'rgba(255,255,255,0.85)'}>
                 … ({nKrokvi} krokví) …
               </text>
             </>
           )}
           {rx1 !== null && rx2 !== null && rx1 < rx2 && (
             <line x1={rx1} y1={ry} x2={rx2} y2={ry}
-              stroke="rgba(255,255,255,0.90)" strokeWidth={3.5} strokeLinecap="round" />
+              stroke={ridgeCol} strokeWidth={isKrov ? 5 : 3.5} strokeLinecap="round" />
           )}
-          {typ === 'stanova' && <circle cx={cx} cy={ry} r={5} fill="rgba(255,255,255,0.90)" />}
+          {typ === 'stanova' && <circle cx={cx} cy={ry} r={5} fill={ridgeCol} />}
           {hasNarozi && (
             <>
-              <line x1={ox} y1={oy} x2={rx1} y2={ry} stroke="rgba(255,255,255,0.60)" strokeWidth={2} />
-              <line x1={ox} y1={oy+drawW} x2={rx1} y2={ry} stroke="rgba(255,255,255,0.60)" strokeWidth={2} />
-              <line x1={ox+drawL} y1={oy} x2={rx2} y2={ry} stroke="rgba(255,255,255,0.60)" strokeWidth={2} />
-              <line x1={ox+drawL} y1={oy+drawW} x2={rx2} y2={ry} stroke="rgba(255,255,255,0.60)" strokeWidth={2} />
+              <line x1={ox} y1={oy} x2={rx1} y2={ry} stroke={isKrov ? 'rgba(139,69,19,0.80)' : 'rgba(255,255,255,0.60)'} strokeWidth={isKrov ? 2 : 2} />
+              <line x1={ox} y1={oy+drawW} x2={rx1} y2={ry} stroke={isKrov ? 'rgba(139,69,19,0.80)' : 'rgba(255,255,255,0.60)'} strokeWidth={2} />
+              <line x1={ox+drawL} y1={oy} x2={rx2} y2={ry} stroke={isKrov ? 'rgba(139,69,19,0.80)' : 'rgba(255,255,255,0.60)'} strokeWidth={2} />
+              <line x1={ox+drawL} y1={oy+drawW} x2={rx2} y2={ry} stroke={isKrov ? 'rgba(139,69,19,0.80)' : 'rgba(255,255,255,0.60)'} strokeWidth={2} />
             </>
           )}
           {hasDiag && (
@@ -582,6 +621,8 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi })
               <line x1={ox+drawL} y1={oy+drawW} x2={rx2 ?? cx} y2={ry} stroke="rgba(255,255,255,0.28)" strokeWidth={1} />
             </>
           )}
+          {/* Vikýře v půdorysu */}
+          {!isLT && vikyreSVG}
         </>
       )}
 
@@ -673,6 +714,7 @@ export default function Pudorys() {
   const [showModal, setShowModal] = useState(false)
   const [view3d,    setView3d]    = useState(false)
   const [drawTab,   setDrawTab]   = useState('pudorys')
+  const [pudorysView, setPudorysView] = useState('strecha')
   const [csvError,  setCsvError]  = useState('')
   const [showVikyre,  setShowVikyre]  = useState(true)
   const [showOkna,    setShowOkna]    = useState(true)
@@ -874,8 +916,21 @@ export default function Pudorys() {
               </Preview3DErrorBoundary>
             ) : (
               <div className="overflow-x-auto">
+                {/* Toggle krov / střecha pro půdorys */}
+                <div className="flex gap-1 mb-2">
+                  {[{id:'strecha',label:'🏠 Střecha'},{id:'krov',label:'🪵 Krov'}].map(v => (
+                    <button key={v.id} onClick={() => setPudorysView(v.id)}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold border transition-colors"
+                      style={pudorysView === v.id
+                        ? { background: '#0f172a', color: '#fff', borderColor: '#0f172a' }
+                        : { background: '#f8fafc', color: '#64748b', borderColor: '#e2e8f0' }}>
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
                 <PudorysSVG typ={typ} sirka={sirka} delka={delka}
-                  presahOkap={presahOkap} presahStit={presahStit} roztecKrokvi={roztecKrokvi} />
+                  presahOkap={presahOkap} presahStit={presahStit} roztecKrokvi={roztecKrokvi}
+                  view={pudorysView} vikyre={vikyre} sklon={sklon} />
               </div>
             )}
           </CalcCard>
@@ -901,7 +956,7 @@ export default function Pudorys() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              {drawTab === 'pudorys' && <PudorysSVG typ={typ} sirka={sirka} delka={delka} presahOkap={presahOkap} presahStit={presahStit} roztecKrokvi={roztecKrokvi} />}
+              {drawTab === 'pudorys' && <PudorysSVG typ={typ} sirka={sirka} delka={delka} presahOkap={presahOkap} presahStit={presahStit} roztecKrokvi={roztecKrokvi} view={pudorysView} vikyre={vikyre} sklon={sklon} />}
               {drawTab === 'rez'     && <RezSVG typ={typ} sirka={sirka} sklon={sklon} presahOkap={presahOkap} vyskaZdi={vyskaZdi} />}
               {drawTab === 'pohledy' && <PohledySVG typ={typ} sirka={sirka} delka={delka} sklon={sklon} presahOkap={presahOkap} presahStit={presahStit} vyskaZdi={vyskaZdi} />}
               {drawTab === 'detaily' && <DetailyTable krytina={krytina} sklon={sklon} />}

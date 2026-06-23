@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import * as THREE from 'three'
-import { buildRoofScene, buildBuilding, buildKrov, buildDormer, buildRoofWindow } from '../../utils/roofGeometry3d'
+import { buildRoofScene, buildBuilding, buildKrov, buildDormer, buildRoofWindow, buildKlempirsky } from '../../utils/roofGeometry3d'
 
 const TYP_LABELS = {
   sedlova: 'Sedlová', valbova: 'Valbová', pultova: 'Pultová', stanova: 'Stanová',
@@ -15,6 +15,15 @@ const KROV_LEGENDA = [
   { color: '#7a4520', label: 'Sloupky' },
   { color: '#a05020', label: 'Krokve' },
   { color: '#d08840', label: 'Kleštiny' },
+]
+
+const KLEMPIR_LEGENDA = [
+  { color: '#8a9ba8', label: 'Žlaby + svody (zinek)' },
+  { color: '#a07840', label: 'Kotlíky (měď)' },
+  { color: '#778899', label: 'Střešní háky' },
+  { color: '#606878', label: 'Oplechování komínu' },
+  { color: '#4a5560', label: 'Hřebenový plech' },
+  { color: '#3a4050', label: 'Závětrné listy' },
 ]
 
 const KROV_LEGENDA_BY_TYP = {
@@ -352,6 +361,15 @@ export default function RoofPreview3D({
           } catch (e) { console.warn('buildRoofWindow error', e) }
         })
       }
+
+      // Klempířina
+      if (viewMode === 'klempir') {
+        try {
+          const kl = buildKlempirsky(typ, s, d, sklon, presahOkap, presahStit, wH, roztecKrokvi, vikyre, krytina)
+          kl.userData.building = true
+          scene.add(kl)
+        } catch (e) { console.warn('buildKlempirsky error', e) }
+      }
     }
 
     // Kamera
@@ -418,7 +436,7 @@ export default function RoofPreview3D({
       <div ref={mountRef} className="w-full h-full" />
 
       {/* Popisky rozměrů */}
-      {showLabels && viewMode !== 'krov' && labelPos.map(lp => (
+      {showLabels && viewMode === 'stecha' && labelPos.map(lp => (
         !lp.behind && (
           <div key={lp.id}
             className="absolute pointer-events-none text-xs font-semibold px-1.5 py-0.5 rounded"
@@ -448,6 +466,11 @@ export default function RoofPreview3D({
           style={{ background: viewMode === 'krov' ? '#a05020' : 'rgba(15,23,42,0.75)', color: '#fff' }}>
           🪵 Krov
         </button>
+        <button onClick={() => setViewMode('klempir')}
+          className="px-3 py-1.5 text-xs font-semibold"
+          style={{ background: viewMode === 'klempir' ? '#0e7490' : 'rgba(15,23,42,0.75)', color: '#fff' }}>
+          🔩 Klempíř
+        </button>
       </div>
 
       {/* Info + barva střechy */}
@@ -456,7 +479,7 @@ export default function RoofPreview3D({
           style={{ background: 'rgba(15,23,42,0.65)', color: '#fff' }}>
           {viewMode === 'krov' && krovTyp ? KROV_TYP_LABELS[krovTyp] || krovTyp : (TYP_LABELS[typ] || typ)} · {sklon}°
         </div>
-        {viewMode !== 'krov' && (
+        {viewMode === 'stecha' && (
           <label title="Barva střechy"
             className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer"
             style={{ background: 'rgba(15,23,42,0.65)', color: '#fff' }}>
@@ -486,7 +509,7 @@ export default function RoofPreview3D({
       </div>
 
       {/* Vikýře + okna badge */}
-      {viewMode !== 'krov' && (vikyre.length > 0 || stresniOkna.length > 0) && (
+      {(viewMode === 'stecha' || viewMode === 'klempir') && (vikyre.length > 0 || stresniOkna.length > 0) && (
         <div className="absolute top-12 left-3 flex flex-col gap-1">
           {vikyre.length > 0 && (
             <div className="px-2 py-1 rounded-lg text-xs font-semibold"
@@ -504,7 +527,7 @@ export default function RoofPreview3D({
       )}
 
       {/* Rozměry — textový přehled dole */}
-      {dims && viewMode !== 'krov' && (
+      {dims && viewMode === 'stecha' && (
         <div className="absolute bottom-10 right-3 rounded-xl px-2.5 py-2 flex flex-col gap-0.5"
           style={{ background: 'rgba(10,20,40,0.72)' }}>
           {parseFloat(dims.hrebenLen) > 0 && (
@@ -529,6 +552,19 @@ export default function RoofPreview3D({
         <div className="absolute bottom-10 left-3 rounded-xl p-2.5 flex flex-col gap-1"
           style={{ background: 'rgba(15,23,42,0.80)' }}>
           {(KROV_LEGENDA_BY_TYP[krovTyp] || KROV_LEGENDA).map(l => (
+            <div key={l.label} className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-sm shrink-0" style={{ background: l.color }} />
+              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.88)' }}>{l.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Legenda klempíř */}
+      {viewMode === 'klempir' && (
+        <div className="absolute bottom-10 left-3 rounded-xl p-2.5 flex flex-col gap-1"
+          style={{ background: 'rgba(15,23,42,0.80)' }}>
+          {KLEMPIR_LEGENDA.map(l => (
             <div key={l.label} className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-sm shrink-0" style={{ background: l.color }} />
               <span className="text-xs" style={{ color: 'rgba(255,255,255,0.88)' }}>{l.label}</span>
