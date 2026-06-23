@@ -1317,7 +1317,7 @@ function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '') {
     const x = -hd + i * (2 * hd) / nKontra
     ;[-1, 1].forEach(sign => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(KL_W, KL_H, slopeLen), counterMat)
-      m.rotation.x = -sign * slRad
+      m.rotation.x = sign * slRad
       m.position.set(x, wH + h / 2 + cosA * (KL_H / 2 + 0.005), sign * hw / 2)
       m.castShadow = true
       group.add(m)
@@ -1336,7 +1336,7 @@ function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '') {
         const z = sign * hw * (1 - tm)
         const y = wH + h * tm + cosA * (KL_H + 0.006 + 0.012)
         const m = new THREE.Mesh(new THREE.BoxGeometry(2 * hd, 0.024, boardLen - 0.01), deckMat)
-        m.rotation.x = -sign * slRad
+        m.rotation.x = sign * slRad
         m.position.set(0, y, z)
         m.castShadow = true
         group.add(m)
@@ -1355,6 +1355,7 @@ function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '') {
       const z = sign * hw * (1 - t)
       const y = wH + h * t + cosA * (KL_H + LT_H / 2 + 0.01)
       const m = new THREE.Mesh(new THREE.BoxGeometry(2 * hd, LT_H, 0.05), battenMat)
+      m.rotation.x = sign * slRad
       m.position.set(0, y, z)
       m.castShadow = true
       group.add(m)
@@ -1560,6 +1561,9 @@ export function buildDormer(vikyf, { sirka, delka, sklon, presahOkap, wallHeight
   const gMat    = new THREE.MeshStandardMaterial({ color: 0x7ec8e3, opacity: 0.45, transparent: true, roughness: 0.1 })
   const fMat    = new THREE.MeshStandardMaterial({ color: 0x4a3020, roughness: 0.8 })
   const kMat    = woodMaterial(false, pbrTex)
+  // Sytě hnědá — krokve vikýře musí být v konstrukčním pohledu dobře vidět,
+  // odlišně od laťování hlavní střechy (které je v podobném tónu jako kMat).
+  const krokveMat = new THREE.MeshStandardMaterial({ color: 0xa05020, roughness: 0.80 })
   const vMat    = new THREE.MeshStandardMaterial({ color: 0x7a9ab0, metalness: 0.85, roughness: 0.15 })
 
   // ── PULTOVÝ VIKÝŘ — kompletní tesařská konstrukce ──────────────────────────
@@ -1654,24 +1658,31 @@ export function buildDormer(vikyf, { sirka, delka, sklon, presahOkap, wallHeight
   group.add(ridgeCap)
 
   // ── Krovové prvky vikýře — POUZE v konstrukčním pohledu (Krov/Klempíř) ─────
+  // Sytá barva (krokveMat), aby krokve byly dobře odlišitelné od laťování
+  // hlavní střechy okolo vikýře.
   if (showStructure) {
-    const addKrokev = (p1, p2, bw = 0.06, bh = 0.12) => {
+    const addKrokev = (p1, p2, bw = 0.08, bh = 0.14) => {
       const dir = new THREE.Vector3(p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2])
       const len = dir.length()
       if (len < 0.05) return
-      const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, len), kMat)
+      const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, len), krokveMat)
       m.position.set((p1[0]+p2[0])/2, (p1[1]+p2[1])/2, (p1[2]+p2[2])/2)
       m.setRotationFromQuaternion(
         new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), dir.clone().normalize())
       )
-      m.castShadow = true
+      m.castShadow = true; m.receiveShadow = true
       group.add(m)
     }
-    addKrokev([posX, ridgeY, fwZ], [posX, ridgeY, ridgeZBack], 0.08, 0.10)
-    ;[-1, 1].forEach(side => {
-      const ex = posX + side * (dw / 2 + overhang)
-      addKrokev([posX, ridgeY, fwZ], [ex, wallTopY, fwZ])
-      addKrokev([posX, ridgeY, ridgeZBack], [ex, wallTopY, eaveZBack])
+    // Hřebenová vaznice vikýře
+    addKrokev([posX, ridgeY, fwZ], [posX, ridgeY, ridgeZBack], 0.10, 0.12)
+    // Krokve od hřebene k bočním okapům — přední, střední a zadní pár
+    ;[0, 0.5, 1].forEach(t => {
+      const rz = fwZ + t * (ridgeZBack - fwZ)
+      ;[-1, 1].forEach(side => {
+        const ex = posX + side * (dw / 2 + overhang)
+        const ez = fwZ + t * (eaveZBack - fwZ)
+        addKrokev([posX, ridgeY, rz], [ex, wallTopY, ez])
+      })
     })
   }
 
