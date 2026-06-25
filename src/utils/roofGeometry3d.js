@@ -1283,7 +1283,7 @@ export function buildKrov(typ, sirka, delka, sklon, presahOkap, presahStit, wall
     default: buildSedlova()
   }
 
-  addBattens(group, d, s, po, ps, wH, h, slRad, krytina)
+  addBattens(group, d, s, po, ps, wH, h, slRad, krytina, krokvePosX, POZ_H, HRE_H, KRO_H)
 
   return group
 }
@@ -1298,35 +1298,48 @@ function battenSpacing(krytina = '') {
   return 0.35
 }
 
-// ── Laťování / bednění — mřížka kontralatí a latí (taškové krytiny),
-// nebo plný záklop (plechové krytiny) — vždy od okapu až po hřeben.
-// Viditelná hustá mřížka přes krokve, jak je vidět na referenčních fotkách krovu.
-function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '') {
+// ── Laťování / bednění — kontralatě dosedají přímo na krokve (stejná X pozice
+// i výška horního líce), latě pak dosedají na kontralatě. Vše od okapu po hřeben.
+// Geometrie horního líce krokve odpovídá přesně buildSedlova() níže.
+function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '', krokvePosX = null, POZ_H = 0.12, HRE_H = 0.20, KRO_H = 0.18) {
   const counterMat = new THREE.MeshStandardMaterial({ color: 0xb89060, roughness: 0.85 })
   const battenMat  = new THREE.MeshStandardMaterial({ color: 0xc9a876, roughness: 0.82 })
   const deckMat    = new THREE.MeshStandardMaterial({ color: 0xc4ad84, roughness: 0.88 })
   const hw = s / 2 + po, hd = d / 2 + ps
-  const cosA = Math.cos(slRad)
+  const cosA = Math.cos(slRad), tanA = Math.tan(slRad)
   const slopeLen = Math.sqrt(hw * hw + h * h)
   const sheet = isSheetMetal(krytina)
 
-  // Kontralatě — podél krokví (od okapu k hřebeni), rozmístěné po délce budovy
-  const KL_W = 0.04, KL_H = 0.03
-  const nKontra = Math.max(4, Math.round((2 * hd) / 0.9))
-  for (let i = 0; i <= nKontra; i++) {
-    const x = -hd + i * (2 * hd) / nKontra
+  // Horní líc krokve (osa + půl výšky průřezu) — od okapu (t=0) po hřeben (t=1).
+  // Shoda s buildSedlova: kroStartY/kroEndY je OSA krokve, +kroAdj = horní líc.
+  const kroAdj    = (KRO_H / 2) * cosA
+  const kroStartY = wH + POZ_H + kroAdj - po * tanA
+  const kroEndY   = wH + h + HRE_H / 2 + kroAdj
+  const kroTopAt  = t => kroStartY + t * (kroEndY - kroStartY) + kroAdj
+
+  // X pozice — VŽDY shodné s pozicemi krokví (žádná samostatná rozteč)
+  const xs = (krokvePosX && krokvePosX.length) ? krokvePosX : (() => {
+    const n = Math.max(4, Math.round((2 * hd) / 0.9))
+    return Array.from({ length: n + 1 }, (_, i) => -hd + i * (2 * hd) / n)
+  })()
+
+  // Kontralatě — leží přesně NA krokvích (t=0.5, protože krokev i kontralať
+  // jsou rovné po celé délce svahu, stačí dosadit ve středu)
+  const KL_W = 0.05, KL_H = 0.03
+  const kontraCenterY = kroTopAt(0.5) + cosA * (KL_H / 2)
+  xs.forEach(x => {
     ;[-1, 1].forEach(sign => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(KL_W, KL_H, slopeLen), counterMat)
       m.rotation.x = sign * slRad
-      m.position.set(x, wH + h / 2 + cosA * (KL_H / 2 + 0.005), sign * hw / 2)
+      m.position.set(x, kontraCenterY, sign * hw / 2)
       m.castShadow = true
       group.add(m)
     })
-  }
+  })
 
   if (sheet) {
-    // Plechová krytina — plný záklop (OSB/prkna) místo řídkého laťování,
-    // od okapu (t=0) až po hřeben (t=1), v několika deskách po sklonu.
+    // Plechová krytina — plný záklop (OSB/prkna) na kontralatích, místo řídkého
+    // laťování, od okapu (t=0) až po hřeben (t=1), v několika deskách po sklonu.
     const nBoards = 3
     for (let b = 0; b < nBoards; b++) {
       const t0 = b / nBoards, t1 = (b + 1) / nBoards
@@ -1334,7 +1347,7 @@ function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '') {
       const boardLen = (slopeLen / nBoards)
       ;[-1, 1].forEach(sign => {
         const z = sign * hw * (1 - tm)
-        const y = wH + h * tm + cosA * (KL_H + 0.006 + 0.012)
+        const y = kroTopAt(tm) + cosA * (KL_H + 0.012)
         const m = new THREE.Mesh(new THREE.BoxGeometry(2 * hd, 0.024, boardLen - 0.01), deckMat)
         m.rotation.x = sign * slRad
         m.position.set(0, y, z)
@@ -1345,7 +1358,8 @@ function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '') {
     return
   }
 
-  // Latě — příčné, rovnoběžné s okapem, rozteč dle typu krytiny, od okapu (t=0) po hřeben (t=1)
+  // Latě — příčné, rovnoběžné s okapem/hřebenem, dosedají na kontralatě,
+  // rozteč dle typu krytiny, od okapu (t=0) po hřeben (t=1)
   const LT_H = 0.03
   const rozted = battenSpacing(krytina)
   const nRows = Math.max(3, Math.ceil(slopeLen / rozted))
@@ -1353,7 +1367,7 @@ function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '') {
     const t = r / nRows
     ;[-1, 1].forEach(sign => {
       const z = sign * hw * (1 - t)
-      const y = wH + h * t + cosA * (KL_H + LT_H / 2 + 0.01)
+      const y = kroTopAt(t) + cosA * (KL_H + LT_H / 2 + 0.005)
       const m = new THREE.Mesh(new THREE.BoxGeometry(2 * hd, LT_H, 0.05), battenMat)
       m.rotation.x = sign * slRad
       m.position.set(0, y, z)
