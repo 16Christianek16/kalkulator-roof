@@ -89,7 +89,7 @@ export default function Tasky() {
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border"
                       style={
                         (pokládka === p.value || (!pokládka && k.pokládky[0].value === p.value))
-                          ? { background: '#0f172a', color: '#fff', borderColor: '#0f172a' }
+                          ? { background: 'var(--wood-dark)', color: '#fff', borderColor: 'var(--wood-dark)' }
                           : { background: '#fff', color: '#475569', borderColor: '#e2e8f0' }
                       }
                     >
@@ -104,7 +104,7 @@ export default function Tasky() {
               </div>
             )}
             {k?.image && (
-              <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <div className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'var(--cream2)', border: '1px solid #e2e8f0' }}>
                 <img
                   src={k.image}
                   alt={k.label}
@@ -116,7 +116,7 @@ export default function Tasky() {
                   <span className="text-xs" style={{ color: '#64748b' }}>Min. sklon: {k.minSklon}° · Hmotnost: {k.vaha} kg/m²</span>
                   {k.poznamka && <span className="text-xs" style={{ color: '#94a3b8' }}>{k.poznamka}</span>}
                   {k.url && (
-                    <a href={k.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium" style={{ color: '#2563eb' }}>
+                    <a href={k.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium" style={{ color: 'var(--amber)' }}>
                       Detail na satjam.cz →
                     </a>
                   )}

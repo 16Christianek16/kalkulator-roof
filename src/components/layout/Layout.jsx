@@ -7,7 +7,7 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen print:block" style={{ background: '#f8fafc' }}>
+    <div className="flex h-screen print:block" style={{ background: 'var(--cream)' }}>
       <div className="print:hidden">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </div>

@@ -27,24 +27,24 @@ export default function Header({ onMenuToggle }) {
   const currentLang  = LANGS.find(l => l.code === i18n.language) || LANGS[0]
 
   return (
-    <header className="h-14 px-4 lg:px-6 flex items-center gap-3 shrink-0"
-      style={{ background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
+    <header className="h-[52px] px-4 lg:px-5 flex items-center gap-3 shrink-0"
+      style={{ background: 'var(--wood)', borderBottom: '3px solid var(--amber)' }}>
 
       <button onClick={onMenuToggle}
         className="lg:hidden p-2 rounded-lg transition-colors"
-        style={{ color: '#64748b' }}
-        onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+        style={{ color: 'rgba(245,237,224,0.6)' }}>
         <Menu size={18} />
       </button>
 
       {/* Logo */}
-      <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
-          <span style={{ color: '#fff', fontSize: 9, fontWeight: 900 }}>CR</span>
+      <div className="flex items-center gap-2.5">
+        <div className="w-9 h-9 rounded flex items-center justify-center shrink-0"
+          style={{ background: 'var(--amber)' }}>
+          <span className="font-condensed" style={{ color: 'var(--wood-dark)', fontSize: 13, fontWeight: 700 }}>CR</span>
         </div>
-        <span className="text-sm font-bold hidden sm:block" style={{ color: '#0f172a' }}>CalkulatorRoof</span>
+        <span className="font-condensed font-bold hidden sm:block" style={{ fontSize: 17, color: 'var(--cream)', letterSpacing: '0.02em' }}>
+          KalkulatorRoof
+        </span>
       </div>
 
       <div className="flex-1" />
@@ -53,22 +53,18 @@ export default function Header({ onMenuToggle }) {
         {/* Jazyk */}
         <div className="relative">
           <button onClick={() => setLangOpen(v => !v)}
-            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors"
-            style={{ color: '#64748b' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-            onMouseLeave={e => { if (!langOpen) e.currentTarget.style.background = 'transparent' }}>
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded transition-colors"
+            style={{ color: 'rgba(245,237,224,0.6)' }}>
             <span className="text-base leading-none">{currentLang.flag}</span>
             <Globe size={13} />
           </button>
           {langOpen && (
-            <div className="absolute right-0 top-10 z-50 rounded-xl shadow-lg border py-1 min-w-[140px]"
-              style={{ background: '#fff', borderColor: '#e2e8f0' }}>
+            <div className="absolute right-0 top-10 z-50 rounded shadow-lg border py-1 min-w-[140px]"
+              style={{ background: 'var(--cream2)', borderColor: 'var(--cream3)' }}>
               {LANGS.map(l => (
                 <button key={l.code} onClick={() => changeLang(l.code)}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors"
-                  style={{ color: i18n.language === l.code ? '#2563eb' : '#334155', fontWeight: i18n.language === l.code ? 600 : 400 }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  style={{ color: i18n.language === l.code ? 'var(--amber)' : 'var(--text2)', fontWeight: i18n.language === l.code ? 700 : 400 }}>
                   <span className="text-base">{l.flag}</span>{l.label}
                 </button>
               ))}
@@ -78,27 +74,25 @@ export default function Header({ onMenuToggle }) {
 
         {user?.role === 'admin' && (
           <Link to="/admin"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-            style={{ color: '#64748b' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b' }}>
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors"
+            style={{ color: 'rgba(245,237,224,0.6)' }}>
             <ShieldCheck size={14} /><span className="hidden sm:inline">Admin</span>
           </Link>
         )}
 
-        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ color: '#64748b' }}>
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
-            style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
+        <div className="flex items-center gap-2 px-2 py-1.5 rounded" style={{ color: 'rgba(245,237,224,0.6)' }}>
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+            style={{ background: 'var(--amber)', color: 'var(--wood-dark)' }}>
             {initials}
           </div>
-          {user && <span className="text-xs font-medium hidden md:block" style={{ color: '#0f172a' }}>{user.jmeno}</span>}
+          {user && <span className="text-xs font-medium hidden md:block" style={{ color: 'var(--cream)' }}>{user.jmeno}</span>}
         </div>
 
         <button onClick={handleLogout}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-          style={{ color: '#64748b' }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b' }}>
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors"
+          style={{ color: 'rgba(245,237,224,0.6)' }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#f87171' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(245,237,224,0.6)' }}>
           <LogOut size={14} /><span className="hidden sm:inline">Odhlásit</span>
         </button>
       </div>

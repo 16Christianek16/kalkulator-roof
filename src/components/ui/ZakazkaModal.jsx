@@ -72,10 +72,10 @@ export default function ZakazkaModal({ params, onClose }) {
           style={{ borderBottom: '1px solid #f1f5f9' }}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
+              style={{ background: 'linear-gradient(135deg, var(--amber), var(--amber-light))' }}>
               <FileText size={15} className="text-white" />
             </div>
-            <span className="font-bold text-base" style={{ color: '#0f172a' }}>Uložit jako zakázku</span>
+            <span className="font-bold text-base" style={{ color: 'var(--wood-dark)' }}>Uložit jako zakázku</span>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-slate-100">
             <X size={16} style={{ color: '#94a3b8' }} />
@@ -91,8 +91,8 @@ export default function ZakazkaModal({ params, onClose }) {
               { label: 'Sklon', value: params.sklon, unit: '°' },
             ].map(s => (
               <div key={s.label} className="rounded-xl p-3 text-center"
-                style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                <div className="text-lg font-bold" style={{ color: '#0f172a' }}>{s.value}</div>
+                style={{ background: 'var(--cream2)', border: '1px solid #e2e8f0' }}>
+                <div className="text-lg font-bold" style={{ color: 'var(--wood-dark)' }}>{s.value}</div>
                 <div className="text-xs" style={{ color: '#94a3b8' }}>{s.label} · {s.unit}</div>
               </div>
             ))}
@@ -106,7 +106,7 @@ export default function ZakazkaModal({ params, onClose }) {
                 placeholder="Novák — střecha RD Brno" autoFocus
                 onKeyDown={e => e.key === 'Enter' && handleCreate()}
                 className="flex-1 px-3 py-2.5 text-sm bg-transparent focus:outline-none"
-                style={{ color: '#0f172a' }} />
+                style={{ color: 'var(--wood-dark)' }} />
             </div>
           </div>
 
@@ -117,7 +117,7 @@ export default function ZakazkaModal({ params, onClose }) {
               <input type="text" value={zakaznik} onChange={e => setZakaznik(e.target.value)}
                 list="modal-zakaznici-list" placeholder="Jméno zákazníka..."
                 className="flex-1 px-3 py-2.5 text-sm bg-transparent focus:outline-none"
-                style={{ color: '#0f172a' }} />
+                style={{ color: 'var(--wood-dark)' }} />
             </div>
             <datalist id="modal-zakaznici-list">
               {zakaznici.map(z => (
@@ -148,7 +148,7 @@ export default function ZakazkaModal({ params, onClose }) {
           </button>
           <button onClick={handleCreate} disabled={!nazev.trim()}
             className="flex-[2] py-2.5 px-4 rounded-xl text-sm font-bold text-white transition-opacity disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
+            style={{ background: 'linear-gradient(135deg, var(--amber), var(--amber-light))', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
             Vytvořit zakázku →
           </button>
         </div>

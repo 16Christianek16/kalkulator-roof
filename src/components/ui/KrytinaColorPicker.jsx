@@ -10,7 +10,7 @@ export default function KrytinaColorPicker({ value, onChange }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#1e3a5f' }}>
+      <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text2)' }}>
         Barva krytiny
       </p>
       <div className="grid grid-cols-9 gap-2 sm:gap-3">
@@ -30,7 +30,7 @@ export default function KrytinaColorPicker({ value, onChange }) {
                 style={{
                   width: 32, height: 32, borderRadius: '50%',
                   background: b.hex,
-                  border: active ? '3px solid #2563eb' : '2px solid #e2e8f0',
+                  border: active ? '3px solid var(--amber)' : '2px solid #e2e8f0',
                   boxShadow: active ? '0 0 0 2px rgba(37,99,235,0.25)' : '0 1px 3px rgba(0,0,0,0.15)',
                   transform: hovered ? 'scale(1.1)' : 'scale(1)',
                   transition: 'transform 0.15s ease, border 0.15s ease',
@@ -40,7 +40,7 @@ export default function KrytinaColorPicker({ value, onChange }) {
               <span
                 className="text-[10px] text-center leading-tight"
                 style={{
-                  color: active ? '#1d4ed8' : '#64748b',
+                  color: active ? 'var(--amber-light)' : '#64748b',
                   fontWeight: active ? 700 : 500,
                   maxWidth: 56,
                 }}>

@@ -68,7 +68,7 @@ function InlineInput({ value, onChange, className = '', type = 'text', placehold
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       className={`print:hidden bg-transparent border-b focus:outline-none focus:border-amber-600 text-sm ${right ? 'text-right' : ''} ${className}`}
-      style={{ borderColor: '#bfdbfe', color: '#0f172a', minWidth: 40 }}
+      style={{ borderColor: 'var(--cream3)', color: 'var(--wood-dark)', minWidth: 40 }}
     />
   )
 }
@@ -90,23 +90,23 @@ function DokladRow({ d, onOpen, onDelete }) {
     <div className="flex items-center gap-3 py-3 border-b last:border-0" style={{ borderColor: '#e0e7ff' }}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${d.typ === 'nabidka' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${d.typ === 'nabidka' ? 'text-green-700' : 'bg-green-100 text-green-700'}`} style={d.typ === 'nabidka' ? { background: 'var(--cream2)', color: 'var(--text2)' } : undefined}>
             {d.typ === 'nabidka' ? 'Nabídka' : 'Faktura'}
           </span>
-          <span className="font-semibold text-sm" style={{ color: '#0f172a' }}>{d.cislo}</span>
+          <span className="font-semibold text-sm" style={{ color: 'var(--wood-dark)' }}>{d.cislo}</span>
           <span className="text-xs" style={{ color: '#64748b' }}>{d.datum}</span>
         </div>
-        <div className="text-xs mt-0.5" style={{ color: '#334155' }}>
+        <div className="text-xs mt-0.5" style={{ color: 'var(--text2)' }}>
           {d.zakazka?.nazev && <span>{d.zakazka.nazev}</span>}
           {d.odberatel?.nazev && <span className="ml-2">· {d.odberatel.nazev}</span>}
-          {!isPending && <span className="ml-2 font-semibold" style={{ color: '#0f172a' }}>· {formatNum(celkem, 0)} Kč</span>}
+          {!isPending && <span className="ml-2 font-semibold" style={{ color: 'var(--wood-dark)' }}>· {formatNum(celkem, 0)} Kč</span>}
           {isPending && <span className="ml-2 italic" style={{ color: '#3b82f6' }}>· ceny nevyplněny</span>}
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
         <button onClick={() => onOpen(d)}
           className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-          style={{ background: '#0f172a', color: '#fff' }}>
+          style={{ background: 'var(--wood-dark)', color: '#fff' }}>
           Otevřít
         </button>
         <button onClick={() => onDelete(d.id)}
@@ -192,26 +192,26 @@ export default function Faktura() {
         <div className="flex gap-3 mb-5">
           <button onClick={() => setDoc(newDoklad('nabidka', null, storedDodavatel, doklady))}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-            style={{ background: '#fffaf4', color: '#0f172a', border: '1px solid #bfdbfe' }}>
+            style={{ background: '#fff', color: 'var(--wood-dark)', border: '1px solid var(--cream3)' }}>
             <Plus size={15} /> Nová nabídka
           </button>
           <button onClick={() => setDoc(newDoklad('faktura', null, storedDodavatel, doklady))}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-            style={{ background: '#0f172a', color: '#fff' }}>
+            style={{ background: 'var(--wood-dark)', color: '#fff' }}>
             <Plus size={15} /> Nová faktura
           </button>
         </div>
 
         {doklady.length === 0 ? (
-          <div className="rounded-2xl p-10 text-center" style={{ background: '#fffaf4', border: '1px solid #bfdbfe' }}>
-            <FileText size={40} className="mx-auto mb-3 opacity-30" style={{ color: '#334155' }} />
-            <p className="font-semibold mb-1" style={{ color: '#0f172a' }}>Žádné doklady</p>
+          <div className="rounded-2xl p-10 text-center" style={{ background: '#fff', border: '1px solid var(--cream3)' }}>
+            <FileText size={40} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--text2)' }} />
+            <p className="font-semibold mb-1" style={{ color: 'var(--wood-dark)' }}>Žádné doklady</p>
             <p className="text-sm" style={{ color: '#64748b' }}>
               Vytvořte doklad z existující zakázky nebo použijte tlačítka výše.
             </p>
           </div>
         ) : (
-          <div className="rounded-2xl px-5 py-2" style={{ background: '#fffaf4', border: '1px solid #bfdbfe' }}>
+          <div className="rounded-2xl px-5 py-2" style={{ background: '#fff', border: '1px solid var(--cream3)' }}>
             {doklady.map(d => (
               <DokladRow key={d.id} d={d} onOpen={setDoc} onDelete={deleteDoklad} />
             ))}
@@ -230,28 +230,28 @@ export default function Faktura() {
       <div className="flex items-center gap-3 mb-5 print:hidden">
         <button onClick={() => setDoc(null)}
           className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors"
-          style={{ background: '#eff6ff', color: '#334155', border: '1px solid #bfdbfe' }}>
+          style={{ background: '#eff6ff', color: 'var(--text2)', border: '1px solid var(--cream3)' }}>
           <ArrowLeft size={15} /> Zpět na seznam
         </button>
-        <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: '#bfdbfe' }}>
+        <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--cream3)' }}>
           {['nabidka', 'faktura'].map(t => (
             <button key={t} onClick={() => setField('typ', t)}
               className="px-4 py-2 text-sm font-medium transition-colors"
               style={doc.typ === t
-                ? { background: '#0f172a', color: '#fff' }
-                : { background: '#fffaf4', color: '#334155' }}>
+                ? { background: 'var(--wood-dark)', color: '#fff' }
+                : { background: '#fff', color: 'var(--text2)' }}>
               {t === 'nabidka' ? 'Nabídka' : 'Faktura'}
             </button>
           ))}
         </div>
         {/* Přepínač plátce/neplátce DPH */}
-        <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: '#bfdbfe' }}>
+        <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--cream3)' }}>
           {[true, false].map(p => (
             <button key={String(p)} onClick={() => setField('platceDph', p)}
               className="px-3 py-2 text-xs font-medium transition-colors"
               style={platceDph === p
-                ? { background: '#0f172a', color: '#fff' }
-                : { background: '#fffaf4', color: '#334155' }}>
+                ? { background: 'var(--wood-dark)', color: '#fff' }
+                : { background: '#fff', color: 'var(--text2)' }}>
               {p ? 'Plátce DPH' : 'Neplátce DPH'}
             </button>
           ))}
@@ -259,12 +259,12 @@ export default function Faktura() {
         <div className="flex-1" />
         <button onClick={handleSave}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-          style={{ background: '#fffaf4', color: '#0f172a', border: '1px solid #bfdbfe' }}>
+          style={{ background: '#fff', color: 'var(--wood-dark)', border: '1px solid var(--cream3)' }}>
           <Save size={15} /> Uložit
         </button>
         <button onClick={handlePrint}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-          style={{ background: '#0f172a', color: '#fff' }}>
+          style={{ background: 'var(--wood-dark)', color: '#fff' }}>
           <Printer size={15} /> Tisknout / PDF
         </button>
       </div>
@@ -274,10 +274,10 @@ export default function Faktura() {
         style={{ border: '1px solid #e0d0c0' }}>
 
         {/* Document header */}
-        <div className="flex items-start justify-between mb-6 pb-4" style={{ borderBottom: '2px solid #0f172a' }}>
+        <div className="flex items-start justify-between mb-6 pb-4" style={{ borderBottom: '2px solid var(--wood-dark)' }}>
           <div>
-            <h2 className="text-2xl font-black tracking-wide" style={{ color: '#0f172a' }}>{typLabel}</h2>
-            <div className="flex gap-4 mt-2 text-sm" style={{ color: '#334155' }}>
+            <h2 className="text-2xl font-black tracking-wide" style={{ color: 'var(--wood-dark)' }}>{typLabel}</h2>
+            <div className="flex gap-4 mt-2 text-sm" style={{ color: 'var(--text2)' }}>
               <span>
                 č.{' '}
                 <InlineInput value={doc.cislo} onChange={v => setField('cislo', v)} className="font-bold w-36" />
@@ -298,9 +298,9 @@ export default function Faktura() {
             </div>
           </div>
           {doc.zakazka?.nazev && (
-            <div className="text-right text-sm" style={{ color: '#334155' }}>
+            <div className="text-right text-sm" style={{ color: 'var(--text2)' }}>
               <div className="text-xs uppercase font-bold tracking-wide mb-0.5">Zakázka</div>
-              <div className="font-semibold" style={{ color: '#0f172a' }}>{doc.zakazka.nazev}</div>
+              <div className="font-semibold" style={{ color: 'var(--wood-dark)' }}>{doc.zakazka.nazev}</div>
             </div>
           )}
         </div>
@@ -309,8 +309,8 @@ export default function Faktura() {
         <div className="grid grid-cols-2 gap-8 mb-6">
           {/* Dodavatel */}
           <div>
-            <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#334155' }}>Dodavatel</div>
-            <div className="flex flex-col gap-1.5 text-sm" style={{ color: '#0f172a' }}>
+            <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text2)' }}>Dodavatel</div>
+            <div className="flex flex-col gap-1.5 text-sm" style={{ color: 'var(--wood-dark)' }}>
               {[
                 ['nazev', 'Název / Jméno', ''],
                 ['ico',   'IČO',           'IČO: '],
@@ -342,8 +342,8 @@ export default function Faktura() {
 
           {/* Odběratel */}
           <div>
-            <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#334155' }}>Odběratel</div>
-            <div className="flex flex-col gap-1.5 text-sm" style={{ color: '#0f172a' }}>
+            <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text2)' }}>Odběratel</div>
+            <div className="flex flex-col gap-1.5 text-sm" style={{ color: 'var(--wood-dark)' }}>
               {[
                 ['nazev', 'Jméno / Firma', ''],
                 ['adresa','Adresa',        ''],
@@ -368,12 +368,12 @@ export default function Faktura() {
         {/* Tabulka položek */}
         <table className="w-full text-sm mb-1">
           <thead>
-            <tr style={{ borderBottom: '2px solid #0f172a' }}>
-              <th className="pb-2 text-left font-bold" style={{ color: '#0f172a' }}>Popis práce / materiálu</th>
-              <th className="pb-2 text-right font-bold w-20" style={{ color: '#0f172a' }}>Množství</th>
-              <th className="pb-2 text-right font-bold w-16" style={{ color: '#0f172a' }}>Jedn.</th>
-              <th className="pb-2 text-right font-bold w-28" style={{ color: '#0f172a' }}>Cena/jedn.</th>
-              <th className="pb-2 text-right font-bold w-28" style={{ color: '#0f172a' }}>Celkem</th>
+            <tr style={{ borderBottom: '2px solid var(--wood-dark)' }}>
+              <th className="pb-2 text-left font-bold" style={{ color: 'var(--wood-dark)' }}>Popis práce / materiálu</th>
+              <th className="pb-2 text-right font-bold w-20" style={{ color: 'var(--wood-dark)' }}>Množství</th>
+              <th className="pb-2 text-right font-bold w-16" style={{ color: 'var(--wood-dark)' }}>Jedn.</th>
+              <th className="pb-2 text-right font-bold w-28" style={{ color: 'var(--wood-dark)' }}>Cena/jedn.</th>
+              <th className="pb-2 text-right font-bold w-28" style={{ color: 'var(--wood-dark)' }}>Celkem</th>
               <th className="pb-2 w-7 print:hidden" />
             </tr>
           </thead>
@@ -387,7 +387,7 @@ export default function Faktura() {
                     <input type="text" value={row.popis}
                       onChange={e => updateRadek(row.id, 'popis', e.target.value)}
                       className="print:hidden w-full bg-transparent border-b text-sm focus:outline-none"
-                      style={{ borderColor: '#bfdbfe', color: '#0f172a' }}
+                      style={{ borderColor: 'var(--cream3)', color: 'var(--wood-dark)' }}
                       placeholder="Popis..." />
                   </td>
                   <td className="py-2 px-1 text-right">
@@ -395,14 +395,14 @@ export default function Faktura() {
                     <input type="number" value={row.mnozstvi}
                       onChange={e => updateRadek(row.id, 'mnozstvi', e.target.value)}
                       className="print:hidden w-16 bg-transparent border-b text-sm text-right focus:outline-none"
-                      style={{ borderColor: '#bfdbfe', color: '#0f172a' }} />
+                      style={{ borderColor: 'var(--cream3)', color: 'var(--wood-dark)' }} />
                   </td>
                   <td className="py-2 px-1 text-right">
                     <span className="hidden print:inline">{row.jednotka}</span>
                     <select value={row.jednotka}
                       onChange={e => updateRadek(row.id, 'jednotka', e.target.value)}
                       className="print:hidden bg-transparent text-sm text-right focus:outline-none border-b"
-                      style={{ borderColor: '#bfdbfe', color: '#0f172a' }}>
+                      style={{ borderColor: 'var(--cream3)', color: 'var(--wood-dark)' }}>
                       {JEDNOTKY.map(j => <option key={j}>{j}</option>)}
                     </select>
                   </td>
@@ -411,10 +411,10 @@ export default function Faktura() {
                     <input type="number" value={row.cena}
                       onChange={e => updateRadek(row.id, 'cena', e.target.value)}
                       className="print:hidden w-24 bg-transparent border-b text-sm text-right focus:outline-none"
-                      style={{ borderColor: '#bfdbfe', color: '#0f172a' }}
+                      style={{ borderColor: 'var(--cream3)', color: 'var(--wood-dark)' }}
                       placeholder="0" />
                   </td>
-                  <td className="py-2 pl-1 text-right font-semibold" style={{ color: '#0f172a' }}>
+                  <td className="py-2 pl-1 text-right font-semibold" style={{ color: 'var(--wood-dark)' }}>
                     {formatNum(total, 0)} Kč
                   </td>
                   <td className="py-2 print:hidden">
@@ -429,7 +429,7 @@ export default function Faktura() {
         </table>
         <button onClick={addRadek}
           className="flex items-center gap-1.5 text-xs font-medium mb-6 print:hidden"
-          style={{ color: '#334155' }}>
+          style={{ color: 'var(--text2)' }}>
           <Plus size={14} /> Přidat řádek
         </button>
 
@@ -438,30 +438,30 @@ export default function Faktura() {
           <div className="w-72 text-sm">
             {platceDph ? (
               <>
-                <div className="flex justify-between py-1" style={{ borderBottom: '1px solid #e0e7ff', color: '#334155' }}>
+                <div className="flex justify-between py-1" style={{ borderBottom: '1px solid #e0e7ff', color: 'var(--text2)' }}>
                   <span>Základ DPH (bez DPH)</span>
-                  <span className="font-semibold" style={{ color: '#0f172a' }}>{formatNum(bezDph, 0)} Kč</span>
+                  <span className="font-semibold" style={{ color: 'var(--wood-dark)' }}>{formatNum(bezDph, 0)} Kč</span>
                 </div>
-                <div className="flex justify-between py-1 items-center" style={{ borderBottom: '1px solid #e0e7ff', color: '#334155' }}>
+                <div className="flex justify-between py-1 items-center" style={{ borderBottom: '1px solid #e0e7ff', color: 'var(--text2)' }}>
                   <span className="flex items-center gap-1">
                     DPH{' '}
                     <select value={doc.sazbaDP}
                       onChange={e => setField('sazbaDP', parseFloat(e.target.value))}
                       className="print:hidden bg-transparent text-xs focus:outline-none border-b"
-                      style={{ borderColor: '#bfdbfe', color: '#334155', width: 40 }}>
+                      style={{ borderColor: 'var(--cream3)', color: 'var(--text2)', width: 40 }}>
                       {[0, 10, 12, 15, 21].map(v => <option key={v} value={v}>{v} %</option>)}
                     </select>
                     <span className="hidden print:inline">{doc.sazbaDP} %</span>
                   </span>
-                  <span className="font-semibold" style={{ color: '#0f172a' }}>{formatNum(dphCast, 0)} Kč</span>
+                  <span className="font-semibold" style={{ color: 'var(--wood-dark)' }}>{formatNum(dphCast, 0)} Kč</span>
                 </div>
               </>
             ) : (
-              <div className="py-1 text-xs italic" style={{ color: '#334155', borderBottom: '1px solid #e0e7ff' }}>
+              <div className="py-1 text-xs italic" style={{ color: 'var(--text2)', borderBottom: '1px solid #e0e7ff' }}>
                 Fakturující subjekt není plátcem DPH dle §6 zák. č. 235/2004 Sb.
               </div>
             )}
-            <div className="flex justify-between py-2 text-base font-black" style={{ color: '#0f172a' }}>
+            <div className="flex justify-between py-2 text-base font-black" style={{ color: 'var(--wood-dark)' }}>
               <span>Celkem k úhradě</span>
               <span>{formatNum(celkemSDph, 0)} Kč</span>
             </div>
@@ -470,22 +470,22 @@ export default function Faktura() {
 
         {/* Poznámka */}
         <div className="mt-6 pt-4" style={{ borderTop: '1px solid #e0e7ff' }}>
-          <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#334155' }}>Poznámky</div>
-          <span className="hidden print:block text-sm" style={{ color: '#0f172a', whiteSpace: 'pre-wrap' }}>
+          <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text2)' }}>Poznámky</div>
+          <span className="hidden print:block text-sm" style={{ color: 'var(--wood-dark)', whiteSpace: 'pre-wrap' }}>
             {doc.poznamka || '—'}
           </span>
           <textarea value={doc.poznamka}
             onChange={e => setField('poznamka', e.target.value)}
             rows={2}
             className="print:hidden w-full bg-transparent text-sm resize-none focus:outline-none"
-            style={{ color: '#0f172a' }}
+            style={{ color: 'var(--wood-dark)' }}
             placeholder="Platnost nabídky, způsob platby, bankovní spojení, poznámky..." />
         </div>
 
         {/* Patička účtu */}
         {doc.dodavatel.ucet && (
-          <div className="mt-4 text-xs" style={{ color: '#334155' }}>
-            Bankovní spojení: <span className="font-semibold" style={{ color: '#0f172a' }}>{doc.dodavatel.ucet}</span>
+          <div className="mt-4 text-xs" style={{ color: 'var(--text2)' }}>
+            Bankovní spojení: <span className="font-semibold" style={{ color: 'var(--wood-dark)' }}>{doc.dodavatel.ucet}</span>
             {ucetNaIBAN(doc.dodavatel.ucet) && (
               <span className="ml-2" style={{ color: '#94a3b8' }}>
                 · IBAN: {ucetNaIBAN(doc.dodavatel.ucet)}
@@ -498,15 +498,15 @@ export default function Faktura() {
         {spaydStr && (
           <div className="mt-6 pt-4 flex items-start gap-6" style={{ borderTop: '1px solid #e0e7ff' }}>
             <div>
-              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#334155' }}>
+              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text2)' }}>
                 QR Platba
               </div>
               <div style={{ padding: 6, background: '#fff', border: '1px solid #e0d0c0', borderRadius: 4, display: 'inline-block' }}>
                 <QRCodeSVG value={spaydStr} size={120} level="M" />
               </div>
             </div>
-            <div className="text-xs" style={{ color: '#334155', paddingTop: 24 }}>
-              <p className="font-semibold mb-1" style={{ color: '#0f172a' }}>Platba převodem</p>
+            <div className="text-xs" style={{ color: 'var(--text2)', paddingTop: 24 }}>
+              <p className="font-semibold mb-1" style={{ color: 'var(--wood-dark)' }}>Platba převodem</p>
               <p>Naskenujte QR kód v mobilní aplikaci banky.</p>
               <p className="mt-1">Formát: <span className="font-mono text-xs">SPAYD</span> (standard ČBA).</p>
               {ucetNaIBAN(doc.dodavatel?.ucet) && (
@@ -518,7 +518,7 @@ export default function Faktura() {
           </div>
         )}
         {doc.typ === 'faktura' && !spaydStr && doc.dodavatel?.ucet && celkemSDph > 0 && (
-          <p className="mt-4 text-xs print:hidden" style={{ color: '#2563eb' }}>
+          <p className="mt-4 text-xs print:hidden" style={{ color: 'var(--amber)' }}>
             QR platba: zkontrolujte formát čísla účtu (např. 123456789/0800).
           </p>
         )}

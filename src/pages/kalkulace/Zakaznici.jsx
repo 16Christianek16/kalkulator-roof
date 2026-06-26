@@ -26,7 +26,8 @@ export default function Zakaznici() {
         <div className="flex justify-end">
           <button
             onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded font-condensed uppercase"
+            style={{ background: 'var(--amber)', color: 'var(--wood-dark)' }}
           >
             <Plus size={16} /> Nový zákazník
           </button>
@@ -46,13 +47,14 @@ export default function Zakaznici() {
                     type="text"
                     value={form[field]}
                     onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
-                    className="px-3 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2.5 text-sm rounded border-2 focus:outline-none"
+                    style={{ borderColor: 'var(--cream3)' }}
                   />
                 </div>
               ))}
             </div>
             <div className="flex gap-3 mt-4">
-              <button onClick={handleAdd} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+              <button onClick={handleAdd} className="px-4 py-2 text-sm font-bold rounded font-condensed uppercase" style={{ background: 'var(--amber)', color: 'var(--wood-dark)' }}>
                 Uložit
               </button>
               <button onClick={() => setShowForm(false)} className="px-4 py-2 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-100">
@@ -70,8 +72,8 @@ export default function Zakaznici() {
               {zakaznici.map(z => (
                 <div key={z.id} className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center">
-                      <User size={18} className="text-blue-600" />
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'var(--cream2)' }}>
+                      <User size={18} style={{ color: 'var(--amber)' }} />
                     </div>
                     <div>
                       <p className="font-medium text-slate-800">{z.jmeno} {z.prijmeni}</p>

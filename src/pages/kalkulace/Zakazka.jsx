@@ -12,7 +12,7 @@ function InfoRow({ label, value, unit }) {
   return (
     <div className="flex justify-between items-baseline py-1.5 border-b last:border-0" style={{ borderColor: '#f1f5f9' }}>
       <span className="text-xs" style={{ color: '#94a3b8' }}>{label}</span>
-      <span className="text-sm font-semibold" style={{ color: '#0f172a' }}>
+      <span className="text-sm font-semibold" style={{ color: 'var(--wood-dark)' }}>
         {value}{unit && <span className="text-xs font-normal ml-1" style={{ color: '#64748b' }}>{unit}</span>}
       </span>
     </div>
@@ -40,7 +40,7 @@ function ZakazkaCard({ zakazka, onDelete, onDoklad }) {
         style={{ borderBottom: open ? '1px solid #f1f5f9' : 'none' }}
         onClick={() => setOpen(o => !o)}>
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-base truncate" style={{ color: '#0f172a' }}>{zakazka.nazev}</div>
+          <div className="font-bold text-base truncate" style={{ color: 'var(--wood-dark)' }}>{zakazka.nazev}</div>
           <div className="text-xs mt-0.5 flex gap-3" style={{ color: '#94a3b8' }}>
             {zakazka.zakaznik && <span>{zakazka.zakaznik}</span>}
             <span>{zakazka.datum}</span>
@@ -50,13 +50,13 @@ function ZakazkaCard({ zakazka, onDelete, onDoklad }) {
         <div className="flex items-center gap-2 ml-3 shrink-0">
           <button onClick={e => { e.stopPropagation(); onDoklad(zakazka.id, 'nabidka') }}
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-            style={{ background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0' }}
+            style={{ background: 'var(--cream2)', color: '#475569', border: '1px solid #e2e8f0' }}
             title="Cenová nabídka">
             <FileText size={13} /> Nabídka
           </button>
           <button onClick={e => { e.stopPropagation(); onDoklad(zakazka.id, 'faktura') }}
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors text-white"
-            style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}
+            style={{ background: 'linear-gradient(135deg, var(--amber), var(--amber-light))' }}
             title="Faktura">
             <Receipt size={13} /> Faktura
           </button>
@@ -123,7 +123,7 @@ function ZakazkaCard({ zakazka, onDelete, onDoklad }) {
       )}
 
       {open && (
-        <div className="px-5 py-3 flex gap-3 flex-wrap" style={{ background: '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
+        <div className="px-5 py-3 flex gap-3 flex-wrap" style={{ background: 'var(--cream2)', borderTop: '1px solid #f1f5f9' }}>
           <button onClick={() => onDoklad(zakazka.id, 'nabidka')}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-colors"
             style={{ background: '#fff', color: '#475569', border: '1px solid #e2e8f0' }}>
@@ -131,7 +131,7 @@ function ZakazkaCard({ zakazka, onDelete, onDoklad }) {
           </button>
           <button onClick={() => onDoklad(zakazka.id, 'faktura')}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
+            style={{ background: 'linear-gradient(135deg, var(--amber), var(--amber-light))' }}>
             <Receipt size={14} /> Vytvořit fakturu
           </button>
           <button onClick={() => exportZakazkaPdf({
@@ -179,11 +179,11 @@ export default function Zakazka() {
       <div className="flex items-center justify-between mb-5">
         <p className="text-sm" style={{ color: '#64748b' }}>
           Zakázky se vytvářejí automaticky při změně parametrů v{' '}
-          <Link to="/strechy/pudorys" className="font-semibold hover:underline" style={{ color: '#2563eb' }}>sekci Půdorys</Link>.
+          <Link to="/strechy/pudorys" className="font-semibold hover:underline" style={{ color: 'var(--amber)' }}>sekci Půdorys</Link>.
         </p>
         <button onClick={() => setShowModal(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
+          style={{ background: 'linear-gradient(135deg, var(--amber), var(--amber-light))' }}>
           <BookOpen size={15} /> Nová zakázka
         </button>
       </div>
@@ -191,13 +191,13 @@ export default function Zakazka() {
       {sorted.length === 0 ? (
         <div className="rounded-2xl p-12 text-center bg-white" style={{ border: '1px solid #e2e8f0' }}>
           <BarChart2 size={40} className="mx-auto mb-3" style={{ color: '#e2e8f0' }} />
-          <p className="font-semibold mb-1" style={{ color: '#0f172a' }}>Žádné zakázky</p>
+          <p className="font-semibold mb-1" style={{ color: 'var(--wood-dark)' }}>Žádné zakázky</p>
           <p className="text-sm mb-5" style={{ color: '#64748b' }}>
             Přejděte do sekce Půdorys, nastavte rozměry střechy — po chvíli vyskočí dialog pro uložení zakázky.
           </p>
           <Link to="/strechy/pudorys"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-            style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
+            style={{ background: 'linear-gradient(135deg, var(--amber), var(--amber-light))' }}>
             Přejít na Půdorys <ArrowRight size={15} />
           </Link>
         </div>

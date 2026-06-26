@@ -1,15 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap');
 @import "tailwindcss";
 
 *, *::before, *::after { box-sizing: border-box; }
 
+:root {
+  --wood-dark: #2c1a0e;
+  --wood: #3d2410;
+  --wood-mid: #5c3318;
+  --wood-light: #7a4a28;
+  --amber: #d4891a;
+  --amber-light: #f0a630;
+  --cream: #f5ede0;
+  --cream2: #ede0cc;
+  --cream3: #ddd0b8;
+  --text: #1a0e06;
+  --text2: #4a2e1a;
+  --text3: #8a6a50;
+  --red-tile: #a0392b;
+  --red-tile2: #c0402e;
+  --success: #2d7a3a;
+  --border: rgba(93, 51, 24, .2);
+}
+
 body {
   margin: 0;
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background-color: #ffffff;
-  color: #0f172a;
+  font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: var(--cream);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+.font-condensed { font-family: 'Roboto Condensed', sans-serif; }
 
 #root { width: 100%; min-height: 100vh; }
 
@@ -17,68 +39,75 @@ input, select, textarea { font-family: inherit; }
 
 /* ── Input / Select focus ────────────────────────────── */
 .input-wrap {
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
-  background: #f8fafc;
+  border: 2px solid var(--cream3);
+  border-radius: 0.25rem;
+  background: #fff;
   overflow: hidden;
   display: flex;
   align-items: stretch;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .input-wrap:focus-within {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-  background: #fff;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(212, 137, 26, 0.15);
 }
 
 .select-field {
   width: 100%;
   padding: 0.625rem 0.75rem;
   font-size: 0.875rem;
-  color: #0f172a;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
+  font-weight: 500;
+  color: var(--text);
+  background: #fff;
+  border: 2px solid var(--cream3);
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
   appearance: none;
 }
 .select-field:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-  background: #fff;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(212, 137, 26, 0.15);
 }
 
 /* ── Sidebar nav ─────────────────────────────────────── */
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.625rem;
-  border-radius: 0.375rem;
-  font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.5);
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0;
+  font-size: 0.78rem;
+  color: rgba(245, 237, 224, 0.55);
   transition: background-color 0.12s, color 0.12s;
   text-decoration: none;
   white-space: nowrap;
+  position: relative;
+}
+.nav-link::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 0; background: var(--amber);
+  transition: width 0.15s;
 }
 .nav-link:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background-color: rgba(255, 255, 255, 0.07);
+  color: var(--cream);
+  background-color: rgba(212, 137, 26, 0.08);
 }
 .nav-link.active {
-  color: #fff;
-  background-color: rgba(37, 99, 235, 0.35);
-  font-weight: 600;
+  color: var(--amber-light);
+  background-color: rgba(212, 137, 26, 0.12);
+  font-weight: 500;
 }
+.nav-link.active::before { width: 3px; }
 
 /* ── Thin scrollbar ──────────────────────────────────── */
-* { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
-::-webkit-scrollbar { width: 4px; height: 4px; }
+* { scrollbar-width: thin; scrollbar-color: var(--wood-light) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: var(--wood-light); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--wood-mid); }
 
 /* ── Hide number spinners ────────────────────────────── */
 input[type=number]::-webkit-outer-spin-button,
@@ -86,7 +115,29 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin
 input[type=number] { -moz-appearance: textfield; }
 
 /* ── Layout background ───────────────────────────────── */
-.app-bg { background: #f8fafc; }
+.app-bg { background: var(--cream); }
+
+/* ── Buttons (řemeslník) ──────────────────────────────── */
+.btn-ghost-amber {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.45rem 0.9rem; border-radius: 0.2rem;
+  background: transparent; color: var(--amber);
+  border: 2px solid rgba(212, 137, 26, 0.35);
+  font-family: 'Roboto Condensed', sans-serif; font-weight: 700;
+  font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.btn-ghost-amber:hover { border-color: var(--amber); background: rgba(212,137,26,0.06); }
+.btn-primary-amber {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.45rem 0.9rem; border-radius: 0.2rem;
+  background: var(--amber); color: var(--wood-dark);
+  border: 2px solid var(--amber);
+  font-family: 'Roboto Condensed', sans-serif; font-weight: 700;
+  font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase;
+  cursor: pointer; transition: background 0.15s;
+}
+.btn-primary-amber:hover { background: var(--amber-light); border-color: var(--amber-light); }
 
 /* ── Mobile optimizations ────────────────────────────── */
 @media (max-width: 640px) {
@@ -95,7 +146,7 @@ input[type=number] { -moz-appearance: textfield; }
   .input-wrap input { font-size: 1rem; }
   .select-field { font-size: 1rem; }
   main { padding: 1rem !important; }
-  .calc-card { padding: 1rem !important; border-radius: 1rem !important; }
+  .calc-card { padding: 1rem !important; border-radius: 0.4rem !important; }
   .result-grid { grid-template-columns: 1fr 1fr !important; }
   h1, h2 { font-size: 1.25rem !important; }
 }

@@ -2,7 +2,7 @@ import { krytinyOptions } from '../materials/materialConfig'
 
 const VRSTVY = [
   { key: 'krov',       label: 'Krov',       icon: '🪵', color: '#92400e' },
-  { key: 'krytina',    label: 'Krytina',    icon: '🏠', color: '#1e3a5f' },
+  { key: 'krytina',    label: 'Krytina',    icon: '🏠', color: 'var(--text2)' },
   { key: 'klempírina', label: 'Klempířina', icon: '🔩', color: '#374151' },
 ]
 

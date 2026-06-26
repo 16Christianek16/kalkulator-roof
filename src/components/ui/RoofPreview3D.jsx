@@ -506,7 +506,7 @@ export default function RoofPreview3D({
           </div>
           <div className="rounded-full overflow-hidden" style={{ width: 200, height: 8, background: 'rgba(255,255,255,0.15)' }}>
             <div style={{
-              width: `${loadProgress}%`, height: '100%', background: '#2563eb',
+              width: `${loadProgress}%`, height: '100%', background: 'var(--amber)',
               transition: 'width 0.2s ease',
             }} />
           </div>
@@ -537,7 +537,7 @@ export default function RoofPreview3D({
         style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
         <button onClick={() => setViewMode('stecha')}
           className="px-3 py-1.5 text-xs font-semibold"
-          style={{ background: viewMode === 'stecha' ? '#2563eb' : 'rgba(15,23,42,0.75)', color: '#fff' }}>
+          style={{ background: viewMode === 'stecha' ? 'var(--amber)' : 'rgba(15,23,42,0.75)', color: '#fff' }}>
           🏠 Střecha
         </button>
         <button onClick={() => setViewMode('krov')}

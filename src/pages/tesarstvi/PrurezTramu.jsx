@@ -88,7 +88,7 @@ export default function PrurezTramu() {
 
           {res && (
             <CalcCard title="Navržený průřez">
-              <p className="text-2xl font-bold text-blue-700">
+              <p className="text-2xl font-bold font-condensed" style={{ color: 'var(--amber)' }}>
                 {sirka} × {res.h_zaokr} mm
               </p>
               <p className="text-sm text-slate-500 mt-1">

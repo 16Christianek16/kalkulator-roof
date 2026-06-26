@@ -41,7 +41,8 @@ export default function Sklad() {
         <div className="flex justify-end">
           <button
             onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded font-condensed uppercase"
+            style={{ background: 'var(--amber)', color: 'var(--wood-dark)' }}
           >
             <Plus size={16} /> Přidat položku
           </button>
@@ -64,13 +65,14 @@ export default function Sklad() {
                     type={t}
                     value={form[f]}
                     onChange={e => setForm(d => ({ ...d, [f]: e.target.value }))}
-                    className="px-3 py-2.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-2.5 text-sm rounded border-2 focus:outline-none"
+                    style={{ borderColor: 'var(--cream3)' }}
                   />
                 </div>
               ))}
             </div>
             <div className="flex gap-3 mt-4">
-              <button onClick={handleAdd} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">Uložit</button>
+              <button onClick={handleAdd} className="px-4 py-2 text-sm font-bold rounded font-condensed uppercase" style={{ background: 'var(--amber)', color: 'var(--wood-dark)' }}>Uložit</button>
               <button onClick={() => setShowForm(false)} className="px-4 py-2 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-100">Zrušit</button>
             </div>
           </CalcCard>
@@ -104,7 +106,8 @@ export default function Sklad() {
                             type="number"
                             value={item.mnozstvi}
                             onChange={e => updateSkladItem(item.id, { mnozstvi: e.target.value })}
-                            className="w-20 px-2 py-1 text-sm rounded border border-slate-200 text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            className="w-20 px-2 py-1 text-sm rounded border text-right focus:outline-none"
+                            style={{ borderColor: 'var(--cream3)' }}
                           />
                           <span className="ml-1 text-slate-500">{item.jednotka}</span>
                         </td>

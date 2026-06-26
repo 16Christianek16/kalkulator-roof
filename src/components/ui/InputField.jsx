@@ -1,7 +1,7 @@
 export default function InputField({ label, value, onChange, unit, type = 'number', min, max, step = 'any', hint }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium" style={{ color: '#64748b' }}>{label}</label>
+      <label className="font-condensed font-bold uppercase" style={{ fontSize: 10, letterSpacing: '0.1em', color: 'var(--text3)' }}>{label}</label>
       <div className="input-wrap">
         <input
           type={type}
@@ -11,16 +11,16 @@ export default function InputField({ label, value, onChange, unit, type = 'numbe
           max={max}
           step={step}
           className="flex-1 px-3 py-2.5 text-sm bg-transparent focus:outline-none"
-          style={{ color: '#0f172a' }}
+          style={{ color: 'var(--text)', fontWeight: 500 }}
         />
         {unit && (
-          <span className="px-3 flex items-center text-xs font-medium shrink-0 border-l"
-            style={{ background: '#f1f5f9', borderColor: '#e2e8f0', color: '#94a3b8', minWidth: '2.5rem' }}>
+          <span className="px-3 flex items-center font-condensed font-bold shrink-0 border-l"
+            style={{ background: 'var(--cream3)', borderColor: 'var(--cream3)', color: 'var(--text3)', fontSize: 11, minWidth: '2.5rem' }}>
             {unit}
           </span>
         )}
       </div>
-      {hint && <p className="text-xs" style={{ color: '#94a3b8' }}>{hint}</p>}
+      {hint && <p className="text-xs" style={{ color: 'var(--text3)' }}>{hint}</p>}
     </div>
   )
 }

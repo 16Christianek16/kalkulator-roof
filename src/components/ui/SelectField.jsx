@@ -1,7 +1,7 @@
 export default function SelectField({ label, value, onChange, options, grouped }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium" style={{ color: '#64748b' }}>{label}</label>
+      <label className="font-condensed font-bold uppercase" style={{ fontSize: 10, letterSpacing: '0.1em', color: 'var(--text3)' }}>{label}</label>
       <select
         value={value}
         onChange={e => onChange(e.target.value)}

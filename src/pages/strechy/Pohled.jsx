@@ -51,7 +51,7 @@ function PohledSVG({ typ, sirka, sklon, presahOkap, vyskaZdi }) {
   const [gLx, gLy] = sc(wallLx, 0)
   const [gRx, gRy] = sc(wallRx, 0)
 
-  const dimColor = '#334155'
+  const dimColor = 'var(--text2)'
   const AS = 6
   const arw = (x, y, dir) => {
     if (dir === 'l') return `M${x},${y} l${AS},${-AS/2} l0,${AS}Z`
@@ -198,14 +198,14 @@ export default function Pohled() {
         <CalcCard title="Parametry střechy">
           <div className="flex flex-col gap-4">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide block mb-2" style={{ color: '#334155' }}>Typ</label>
+              <label className="text-xs font-semibold uppercase tracking-wide block mb-2" style={{ color: 'var(--text2)' }}>Typ</label>
               <div className="grid grid-cols-2 gap-2">
                 {[{ id: 'sedlova', label: 'Sedlová' }, { id: 'pultova', label: 'Pultová' }].map(t => (
                   <button key={t.id} onClick={() => setTyp(t.id)}
                     className="py-2 px-3 rounded-lg text-sm font-medium transition-colors border"
                     style={typ === t.id
-                      ? { background: '#0f172a', color: '#fff', borderColor: '#0f172a' }
-                      : { background: '#fffaf4', color: '#334155', borderColor: '#bfdbfe' }}>
+                      ? { background: 'var(--wood-dark)', color: '#fff', borderColor: 'var(--wood-dark)' }
+                      : { background: '#fff', color: 'var(--text2)', borderColor: 'var(--cream3)' }}>
                     {t.label}
                   </button>
                 ))}

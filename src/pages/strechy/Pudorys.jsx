@@ -63,10 +63,10 @@ const DC = {
   wall:    '#ede9e6',
   wStroke: '#a09080',
   krov:    '#8b5e3c',
-  dim:     '#334155',
+  dim:     'var(--text2)',
   ridge:   '#7c2d12',
   ground:  '#8a9ab0',
-  bg:      '#f8fafc',
+  bg:      'var(--cream2)',
   grid:    '#e8edf2',
 }
 
@@ -410,7 +410,7 @@ function DetailyTable({ krytina, sklon }) {
           {layers.map((l, i) => (
             <div key={i} className="flex items-center gap-2.5 py-1.5 border-b last:border-0" style={{ borderColor: '#e8edf2' }}>
               <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: l.color }} />
-              <span className="text-xs font-medium flex-1" style={{ color: '#334155' }}>{l.name}</span>
+              <span className="text-xs font-medium flex-1" style={{ color: 'var(--text2)' }}>{l.name}</span>
               <span className="text-xs font-mono ml-auto" style={{ color: '#94a3b8' }}>{l.th}</span>
             </div>
           ))}
@@ -421,7 +421,7 @@ function DetailyTable({ krytina, sklon }) {
         {info ? (
           <div className="flex flex-col gap-2">
             <div className="rounded-lg p-3" style={{ background: '#f1f5f9' }}>
-              <p className="text-xs font-semibold mb-2" style={{ color: '#1e3a5f' }}>{info.label}</p>
+              <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text2)' }}>{info.label}</p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                 {[
                   ['Kategorie', info.kategorie],
@@ -432,7 +432,7 @@ function DetailyTable({ krytina, sklon }) {
                 ].filter(Boolean).map(([k, v], i) => (
                   <div key={i}>
                     <span className="text-xs" style={{ color: '#94a3b8' }}>{k}: </span>
-                    <span className="text-xs font-semibold" style={{ color: '#334155' }}>{v}</span>
+                    <span className="text-xs font-semibold" style={{ color: 'var(--text2)' }}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -686,11 +686,11 @@ const DRAW_TABS = [
 function SliderRow({ label, min, max, step, value, onChange, format }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs shrink-0" style={{ color: '#64748b', minWidth: 70 }}>{label}</span>
+      <span className="text-xs shrink-0" style={{ color: 'var(--text3)', minWidth: 70 }}>{label}</span>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={e => onChange(parseFloat(e.target.value))}
-        className="flex-1 h-1.5 accent-blue-600" style={{ cursor: 'pointer' }} />
-      <span className="text-xs font-mono font-semibold shrink-0" style={{ color: '#1e3a5f', minWidth: 32, textAlign: 'right' }}>
+        className="flex-1 h-1.5" style={{ cursor: 'pointer', accentColor: 'var(--amber)' }} />
+      <span className="text-xs font-mono font-semibold shrink-0" style={{ color: 'var(--text2)', minWidth: 32, textAlign: 'right' }}>
         {format ? format(value) : value}
       </span>
     </div>
@@ -779,8 +779,8 @@ export default function Pudorys() {
   const isLT = typ === 'tvar-L' || typ === 'tvar-T'
 
   const btnStyle = (active) => active
-    ? { background: '#e8f0fb', color: '#1a6fc4', border: '1px solid #1a6fc4' }
-    : { background: 'transparent', color: '#334155', border: '1px solid #e2e8f0' }
+    ? { background: '#fff8ee', color: 'var(--amber)', border: '2px solid var(--amber)' }
+    : { background: '#fff', color: 'var(--text3)', border: '2px solid var(--cream3)' }
 
   return (
     <div>
@@ -799,16 +799,16 @@ export default function Pudorys() {
             {/* Typy střech s ikonami */}
             {skupiny.map(sk => (
               <div key={sk}>
-                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#94a3b8' }}>{sk}</p>
+                <p className="font-condensed font-bold uppercase mb-2" style={{ fontSize: 10, letterSpacing: '0.15em', color: 'var(--text3)' }}>{sk}</p>
                 <div className="grid grid-cols-2 gap-1.5">
                   {TYPY.filter(r => r.skupinaCs === sk).map(rt => {
                     const active = typ === rt.id
                     return (
                       <button key={rt.id} onClick={() => setTyp(rt.id)}
-                        className="flex flex-col items-center gap-1 py-2 px-1.5 rounded-lg text-xs font-medium transition-colors border"
+                        className="flex flex-col items-center gap-1 py-2 px-1.5 rounded transition-colors"
                         style={btnStyle(active)}>
                         <RoofIcon id={rt.id} active={active} />
-                        <span>{t(`roof.${rt.id}`) || rt.id}</span>
+                        <span className="font-condensed font-bold uppercase" style={{ fontSize: 10, letterSpacing: '0.04em' }}>{t(`roof.${rt.id}`) || rt.id}</span>
                       </button>
                     )
                   })}
@@ -818,8 +818,8 @@ export default function Pudorys() {
 
             {/* Křídlo pro L/T tvar */}
             {isLT && (
-              <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: '#f0f4ff', border: '1px solid #bfdbfe' }}>
-                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#1e3a5f' }}>
+              <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: '#f0f4ff', border: '1px solid var(--cream3)' }}>
+                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text2)' }}>
                   Parametry křídla
                 </p>
                 <InputField label="Šířka křídla" value={kridloSirka} onChange={setKridloSirka} unit="m" min={2} step={0.5} />
@@ -851,16 +851,16 @@ export default function Pudorys() {
               <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={handleCsvImport} />
               <button onClick={() => csvRef.current.click()}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors flex-1"
-                style={{ borderColor: '#bfdbfe', color: '#334155', background: '#fffaf4' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f5e0b0'}
-                onMouseLeave={e => e.currentTarget.style.background = '#fffaf4'}>
+                style={{ borderColor: 'var(--cream3)', color: 'var(--text2)', background: '#fff' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--cream3)'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
                 <Upload size={13} />{t('common.importCsv')}
               </button>
               <button onClick={handleExportPdf}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors flex-1"
-                style={{ borderColor: '#bfdbfe', color: '#334155', background: '#fffaf4' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f5e0b0'}
-                onMouseLeave={e => e.currentTarget.style.background = '#fffaf4'}>
+                style={{ borderColor: 'var(--cream3)', color: 'var(--text2)', background: '#fff' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--cream3)'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
                 <FileDown size={13} />{t('common.exportPdf')}
               </button>
             </div>
@@ -875,15 +875,15 @@ export default function Pudorys() {
           <CalcCard title={
             <div className="flex items-center justify-between w-full">
               <span>{view3d ? '3D Náhled střechy' : 'Půdorys střechy'}</span>
-              <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: '#e2e8f0' }}>
+              <div className="flex rounded overflow-hidden border-2" style={{ borderColor: 'var(--cream3)' }}>
                 <button onClick={() => setView3d(false)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors"
-                  style={!view3d ? { background: '#0f172a', color: '#fff' } : { background: '#f8fafc', color: '#64748b' }}>
+                  className="flex items-center gap-1.5 px-3 py-1.5 font-condensed font-bold uppercase transition-colors"
+                  style={!view3d ? { background: 'var(--amber)', color: 'var(--wood-dark)' } : { background: '#fff', color: 'var(--text3)' }}>
                   <Map size={13} /> 2D
                 </button>
                 <button onClick={() => setView3d(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors"
-                  style={view3d ? { background: '#2563eb', color: '#fff' } : { background: '#f8fafc', color: '#64748b' }}>
+                  className="flex items-center gap-1.5 px-3 py-1.5 font-condensed font-bold uppercase transition-colors"
+                  style={view3d ? { background: 'var(--amber)', color: 'var(--wood-dark)' } : { background: '#fff', color: 'var(--text3)' }}>
                   <Box size={13} /> 3D
                 </button>
               </div>
@@ -924,10 +924,10 @@ export default function Pudorys() {
                 <div className="flex gap-1 mb-2">
                   {[{id:'strecha',label:'🏠 Střecha'},{id:'krov',label:'🪵 Krov'}].map(v => (
                     <button key={v.id} onClick={() => setPudorysView(v.id)}
-                      className="px-3 py-1 rounded-lg text-xs font-semibold border transition-colors"
-                      style={pudorysView === v.id
-                        ? { background: '#0f172a', color: '#fff', borderColor: '#0f172a' }
-                        : { background: '#f8fafc', color: '#64748b', borderColor: '#e2e8f0' }}>
+                      className="px-3 py-1 rounded font-condensed font-bold uppercase border-2 transition-colors"
+                      style={{ fontSize: 11, ...(pudorysView === v.id
+                        ? { background: 'var(--amber)', color: 'var(--wood-dark)', borderColor: 'var(--amber)' }
+                        : { background: '#fff', color: 'var(--text3)', borderColor: 'var(--cream3)' }) }}>
                       {v.label}
                     </button>
                   ))}
@@ -940,23 +940,23 @@ export default function Pudorys() {
           </CalcCard>
 
           {/* ── Technické výkresy ── */}
-          <div className="rounded-xl overflow-hidden border" style={{ borderColor: '#dde3ea', background: '#fff' }}>
-            <div className="flex border-b" style={{ borderColor: '#dde3ea', background: '#f8fafc' }}>
+          <div className="rounded overflow-hidden" style={{ border: '2px solid var(--cream3)', background: '#fff' }}>
+            <div className="flex" style={{ borderBottom: '2px solid var(--cream3)', background: 'var(--cream2)' }}>
               {DRAW_TABS.map(tab => (
                 <button key={tab.id} onClick={() => setDrawTab(tab.id)}
-                  className="px-4 py-2.5 text-xs font-bold tracking-wider transition-colors relative"
-                  style={drawTab === tab.id
-                    ? { color: '#c0391a', borderBottom: '2px solid #c0391a', background: '#fff', marginBottom: -1 }
-                    : { color: '#64748b', borderBottom: '2px solid transparent' }}>
+                  className="px-4 py-2.5 font-condensed font-bold uppercase transition-colors relative"
+                  style={{ fontSize: 12, letterSpacing: '0.1em', ...(drawTab === tab.id
+                    ? { color: 'var(--amber)', borderBottom: '3px solid var(--amber)', background: '#fff', marginBottom: -2 }
+                    : { color: 'var(--text3)', borderBottom: '3px solid transparent' }) }}>
                   {tab.label}
                 </button>
               ))}
-              <div className="ml-auto flex items-center px-4 gap-3 text-xs font-mono" style={{ color: '#94a3b8' }}>
-                <span>X: <b style={{ color: '#475569' }}>{parseFloat(delka).toFixed(2)}</b></span>
-                <span>Y: <b style={{ color: '#475569' }}>{parseFloat(sirka).toFixed(2)}</b></span>
-                <span>Z: <b style={{ color: '#475569' }}>{ridgeH}</b></span>
-                <span style={{ color: '#cbd5e1' }}>|</span>
-                <span>Měřítko <b style={{ color: '#475569' }}>1:100</b></span>
+              <div className="ml-auto flex items-center px-4 gap-3 text-xs font-mono" style={{ color: 'var(--text3)' }}>
+                <span>X: <b style={{ color: 'var(--text2)' }}>{parseFloat(delka).toFixed(2)}</b></span>
+                <span>Y: <b style={{ color: 'var(--text2)' }}>{parseFloat(sirka).toFixed(2)}</b></span>
+                <span>Z: <b style={{ color: 'var(--text2)' }}>{ridgeH}</b></span>
+                <span style={{ color: 'var(--cream3)' }}>|</span>
+                <span>Měřítko <b style={{ color: 'var(--text2)' }}>1:100</b></span>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -973,25 +973,25 @@ export default function Pudorys() {
       <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
 
         {/* VIKÝŘE */}
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#dde3ea', background: '#fff' }}>
+        <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--cream3)', background: '#fff' }}>
           <div
             role="button" tabIndex={0}
             className="w-full flex items-center justify-between px-5 py-3.5 border-b font-semibold text-sm cursor-pointer"
-            style={{ borderColor: '#dde3ea', background: '#f8fafc', color: '#1e3a5f' }}
+            style={{ borderColor: 'var(--cream3)', background: 'var(--cream2)', color: 'var(--text2)' }}
             onClick={() => setShowVikyre(v => !v)}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setShowVikyre(v => !v) }}>
             <span className="flex items-center gap-2">
               🏘 Vikýře
               {vikyre.length > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full text-xs font-bold"
-                  style={{ background: '#2563eb', color: '#fff' }}>{vikyre.length}</span>
+                  style={{ background: 'var(--amber)', color: 'var(--wood-dark)' }}>{vikyre.length}</span>
               )}
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={e => { e.stopPropagation(); addVikyf() }}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors"
-                style={{ background: '#2563eb', color: '#fff' }}>
+                style={{ background: 'var(--amber)', color: 'var(--wood-dark)' }}>
                 <Plus size={12} /> Přidat
               </button>
               {showVikyre ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -1006,9 +1006,9 @@ export default function Pudorys() {
                 </p>
               )}
               {vikyre.map((v, idx) => (
-                <div key={v.id} className="rounded-lg p-3 flex flex-col gap-2.5" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <div key={v.id} className="rounded-lg p-3 flex flex-col gap-2.5" style={{ background: 'var(--cream2)', border: '1px solid #e2e8f0' }}>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold" style={{ color: '#334155' }}>Vikýř {idx + 1}</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--text2)' }}>Vikýř {idx + 1}</span>
                     <button onClick={() => removeVikyf(v.id)}
                       className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
                       <Trash2 size={13} />
@@ -1034,14 +1034,14 @@ export default function Pudorys() {
                       <input type="number" min={0.6} max={4} step={0.1} value={v.sirka}
                         onChange={e => updateVikyf(v.id, { sirka: parseFloat(e.target.value) || 1.5 })}
                         className="w-full text-xs border rounded-lg px-2 py-1.5 font-mono"
-                        style={{ borderColor: '#e2e8f0', color: '#1e3a5f' }} />
+                        style={{ borderColor: '#e2e8f0', color: 'var(--text2)' }} />
                     </div>
                     <div>
                       <label className="text-xs mb-1 block" style={{ color: '#64748b' }}>Výška (m)</label>
                       <input type="number" min={0.6} max={3} step={0.1} value={v.vyska}
                         onChange={e => updateVikyf(v.id, { vyska: parseFloat(e.target.value) || 1.4 })}
                         className="w-full text-xs border rounded-lg px-2 py-1.5 font-mono"
-                        style={{ borderColor: '#e2e8f0', color: '#1e3a5f' }} />
+                        style={{ borderColor: '#e2e8f0', color: 'var(--text2)' }} />
                     </div>
                   </div>
 
@@ -1068,25 +1068,25 @@ export default function Pudorys() {
         </div>
 
         {/* STŘEŠNÍ OKNA */}
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#dde3ea', background: '#fff' }}>
+        <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--cream3)', background: '#fff' }}>
           <div
             role="button" tabIndex={0}
             className="w-full flex items-center justify-between px-5 py-3.5 border-b font-semibold text-sm cursor-pointer"
-            style={{ borderColor: '#dde3ea', background: '#f8fafc', color: '#1e3a5f' }}
+            style={{ borderColor: 'var(--cream3)', background: 'var(--cream2)', color: 'var(--text2)' }}
             onClick={() => setShowOkna(v => !v)}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setShowOkna(v => !v) }}>
             <span className="flex items-center gap-2">
               🪟 Střešní okna (Velux)
               {stresniOkna.length > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full text-xs font-bold"
-                  style={{ background: '#0891b2', color: '#fff' }}>{stresniOkna.length}</span>
+                  style={{ background: 'var(--wood-light)', color: 'var(--cream)' }}>{stresniOkna.length}</span>
               )}
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={e => { e.stopPropagation(); addStresniOkno() }}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors"
-                style={{ background: '#0891b2', color: '#fff' }}>
+                style={{ background: 'var(--wood-light)', color: 'var(--cream)' }}>
                 <Plus size={12} /> Přidat
               </button>
               {showOkna ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -1101,9 +1101,9 @@ export default function Pudorys() {
                 </p>
               )}
               {stresniOkna.map((o, idx) => (
-                <div key={o.id} className="rounded-lg p-3 flex flex-col gap-2.5" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <div key={o.id} className="rounded-lg p-3 flex flex-col gap-2.5" style={{ background: 'var(--cream2)', border: '1px solid #e2e8f0' }}>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold" style={{ color: '#334155' }}>Okno {idx + 1}</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--text2)' }}>Okno {idx + 1}</span>
                     <button onClick={() => removeStresniOkno(o.id)}
                       className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
                       <Trash2 size={13} />
@@ -1116,14 +1116,14 @@ export default function Pudorys() {
                       <input type="number" min={0.5} max={1.5} step={0.02} value={o.sirka}
                         onChange={e => updateStresniOkno(o.id, { sirka: parseFloat(e.target.value) || 0.78 })}
                         className="w-full text-xs border rounded-lg px-2 py-1.5 font-mono"
-                        style={{ borderColor: '#e2e8f0', color: '#1e3a5f' }} />
+                        style={{ borderColor: '#e2e8f0', color: 'var(--text2)' }} />
                     </div>
                     <div>
                       <label className="text-xs mb-1 block" style={{ color: '#64748b' }}>Výška (m)</label>
                       <input type="number" min={0.5} max={2} step={0.02} value={o.vyska}
                         onChange={e => updateStresniOkno(o.id, { vyska: parseFloat(e.target.value) || 0.98 })}
                         className="w-full text-xs border rounded-lg px-2 py-1.5 font-mono"
-                        style={{ borderColor: '#e2e8f0', color: '#1e3a5f' }} />
+                        style={{ borderColor: '#e2e8f0', color: 'var(--text2)' }} />
                     </div>
                   </div>
 
