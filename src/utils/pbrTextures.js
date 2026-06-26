@@ -95,6 +95,7 @@ export function makePBRMaterial(set, { repeatX = 1, repeatY = 1, color = '#fffff
     aoMap: apply(set.aoMap),
     aoMapIntensity: 1.2,
     color: new THREE.Color(color),
+    side: THREE.DoubleSide,
     ...extra,
   })
 }
