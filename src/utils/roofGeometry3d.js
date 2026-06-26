@@ -1302,9 +1302,14 @@ function battenSpacing(krytina = '') {
 // i výška horního líce), latě pak dosedají na kontralatě. Vše od okapu po hřeben.
 // Geometrie horního líce krokve odpovídá přesně buildSedlova() níže.
 function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '', krokvePosX = null, POZ_H = 0.12, HRE_H = 0.20, KRO_H = 0.18) {
-  const counterMat = new THREE.MeshStandardMaterial({ color: 0xb89060, roughness: 0.85 })
+  // Sytší, kontrastnější barva kontralatí — ať jsou na první pohled odlišitelné
+  // od latí i od krokví (širší průřez i tmavší tón).
+  const counterMat = new THREE.MeshStandardMaterial({ color: 0x8a6a3e, roughness: 0.85 })
   const battenMat  = new THREE.MeshStandardMaterial({ color: 0xc9a876, roughness: 0.82 })
   const deckMat    = new THREE.MeshStandardMaterial({ color: 0xc4ad84, roughness: 0.88 })
+  const foilMat    = new THREE.MeshStandardMaterial({
+    color: 0x3a4550, roughness: 0.45, metalness: 0.15, side: THREE.DoubleSide,
+  })
   const hw = s / 2 + po, hd = d / 2 + ps
   const cosA = Math.cos(slRad), tanA = Math.tan(slRad)
   const slopeLen = Math.sqrt(hw * hw + h * h)
@@ -1323,10 +1328,32 @@ function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '', krokvePosX 
     return Array.from({ length: n + 1 }, (_, i) => -hd + i * (2 * hd) / n)
   })()
 
-  // Kontralatě — leží přesně NA krokvích (t=0.5, protože krokev i kontralať
-  // jsou rovné po celé délce svahu, stačí dosadit ve středu)
-  const KL_W = 0.05, KL_H = 0.03
-  const kontraCenterY = kroTopAt(0.5) + cosA * (KL_H / 2)
+  // ── Pojistná/parotěsná fólie — souvislá vrstva přímo na krokvích, pod
+  // kontralatěmi (typicky difúzní fólie chránící krov, zde zjednodušeně
+  // jedna vrstva). Kladena v překrývajících se pruzích od okapu k hřebeni.
+  const FOIL_T = 0.004
+  const nFoilStrips = 5
+  const stripOverlap = 1.08
+  for (let i = 0; i < nFoilStrips; i++) {
+    const t0 = i / nFoilStrips, t1 = (i + 1) / nFoilStrips
+    const tm = (t0 + t1) / 2
+    const stripLen = (slopeLen / nFoilStrips) * stripOverlap
+    ;[-1, 1].forEach(sign => {
+      const z = sign * hw * (1 - tm)
+      const y = kroTopAt(tm) + cosA * (FOIL_T / 2 + 0.001)
+      const m = new THREE.Mesh(new THREE.BoxGeometry(2 * hd, FOIL_T, stripLen), foilMat)
+      m.rotation.x = sign * slRad
+      m.position.set(0, y, z)
+      group.add(m)
+    })
+  }
+
+  // Kontralatě — leží NA fólii (která leží na krokvích), širší průřez pro
+  // dobrou viditelnost (t=0.5, protože krokev i kontralať jsou rovné po celé
+  // délce svahu, stačí dosadit ve středu).
+  const KL_W = 0.07, KL_H = 0.04
+  const kontraBaseY = kroTopAt(0.5) + cosA * FOIL_T
+  const kontraCenterY = kontraBaseY + cosA * (KL_H / 2)
   xs.forEach(x => {
     ;[-1, 1].forEach(sign => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(KL_W, KL_H, slopeLen), counterMat)
@@ -1347,7 +1374,7 @@ function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '', krokvePosX 
       const boardLen = (slopeLen / nBoards)
       ;[-1, 1].forEach(sign => {
         const z = sign * hw * (1 - tm)
-        const y = kroTopAt(tm) + cosA * (KL_H + 0.012)
+        const y = kroTopAt(tm) + cosA * (FOIL_T + KL_H + 0.012)
         const m = new THREE.Mesh(new THREE.BoxGeometry(2 * hd, 0.024, boardLen - 0.01), deckMat)
         m.rotation.x = sign * slRad
         m.position.set(0, y, z)
@@ -1367,7 +1394,7 @@ function addBattens(group, d, s, po, ps, wH, h, slRad, krytina = '', krokvePosX 
     const t = r / nRows
     ;[-1, 1].forEach(sign => {
       const z = sign * hw * (1 - t)
-      const y = kroTopAt(t) + cosA * (KL_H + LT_H / 2 + 0.005)
+      const y = kroTopAt(t) + cosA * (FOIL_T + KL_H + LT_H / 2 + 0.005)
       const m = new THREE.Mesh(new THREE.BoxGeometry(2 * hd, LT_H, 0.05), battenMat)
       m.rotation.x = sign * slRad
       m.position.set(0, y, z)
