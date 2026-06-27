@@ -519,10 +519,12 @@ function drawSindel() {
 }
 
 // ── 6. FALCOVANÝ PLECH (stojatá falc) ────────────────────────────────────────
+// Stojatá falc — svislé spoje přesně po 50 cm (světové měřítko, viz baseRepeatX).
+// Canvas (512px) = 4 m skutečné šířky → 8 panelů × 64px = přesně 0,5 m/panel.
 function drawFalcovany(r, g, b) {
   const [cC, ctx] = makeCanvas()
   const [cH, hCtx] = makeCanvas()
-  const pitch = 48 // šíře panelu
+  const pitch = 64 // šíře panelu [px] — 512/8 = celočíselné, bezešvé opakování
 
   // Základní kov
   ctx.fillStyle = `rgb(${r},${g},${b})`
@@ -537,39 +539,41 @@ function drawFalcovany(r, g, b) {
     ctx.fillRect(0, y, SZ, 2)
   }
 
-  // Stojatá falc (svislé spoje)
-  for (let sx = pitch; sx < SZ; sx += pitch) {
+  // Stojatá falc (svislé spoje) — od 0 do SZ včetně (i sx=SZ), aby navazující
+  // spoj na okraji canvasu měl i levý stín (bezešvé opakování přes RepeatWrapping)
+  for (let sx = 0; sx <= SZ; sx += pitch) {
     // Stín vlevo od spoje
-    const sL = ctx.createLinearGradient(sx - 14, 0, sx, 0)
+    const sL = ctx.createLinearGradient(sx - 19, 0, sx, 0)
     sL.addColorStop(0, 'rgba(0,0,0,0)'); sL.addColorStop(1, 'rgba(0,0,0,0.35)')
-    ctx.fillStyle = sL; ctx.fillRect(sx - 14, 0, 14, SZ)
+    ctx.fillStyle = sL; ctx.fillRect(sx - 19, 0, 19, SZ)
 
     // Světlo na vrcholu spoje
-    ctx.fillStyle = `rgba(255,255,255,0.70)`; ctx.fillRect(sx, 0, 3, SZ)
-    ctx.fillStyle = `rgba(255,255,255,0.35)`; ctx.fillRect(sx + 3, 0, 3, SZ)
+    ctx.fillStyle = `rgba(255,255,255,0.70)`; ctx.fillRect(sx, 0, 4, SZ)
+    ctx.fillStyle = `rgba(255,255,255,0.35)`; ctx.fillRect(sx + 4, 0, 4, SZ)
 
     // Stín vpravo od spoje
-    const sR = ctx.createLinearGradient(sx + 6, 0, sx + 20, 0)
+    const sR = ctx.createLinearGradient(sx + 8, 0, sx + 27, 0)
     sR.addColorStop(0, 'rgba(0,0,0,0.30)'); sR.addColorStop(1, 'rgba(0,0,0,0)')
-    ctx.fillStyle = sR; ctx.fillRect(sx + 6, 0, 14, SZ)
+    ctx.fillStyle = sR; ctx.fillRect(sx + 8, 0, 19, SZ)
 
     // Height map — vyvýšený spoj
     hCtx.fillStyle = 'rgba(0,0,0,0.5)'
-    hCtx.fillRect(sx - 8, 0, 8, SZ)
+    hCtx.fillRect(sx - 11, 0, 11, SZ)
     hCtx.fillStyle = `rgb(255,255,255)`
-    hCtx.fillRect(sx, 0, 4, SZ)
+    hCtx.fillRect(sx, 0, 5, SZ)
     hCtx.fillStyle = 'rgba(0,0,0,0.4)'
-    hCtx.fillRect(sx + 4, 0, 8, SZ)
+    hCtx.fillRect(sx + 5, 0, 11, SZ)
   }
 
-  // Horizontální panelové spoje
+  // Horizontální panelové spoje (délka tabule plechu)
   for (let py = 0; py < SZ; py += 90) {
     ctx.fillStyle = 'rgba(0,0,0,0.30)'; ctx.fillRect(0, py, SZ, 3)
     ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.fillRect(0, py + 3, SZ, 2)
     hCtx.fillStyle = 'rgba(0,0,0,0.7)'; hCtx.fillRect(0, py, SZ, 3)
   }
 
-  return makeMat(cC, cH, { roughness: 0.22, metalness: 0.80, baseRepeatX: 6.0, baseRepeatY: 1.5, normalStrength: 6 })
+  // baseRepeatX = 2.5 → rX = 2.5/10 = 0,25 opakování/m → 1 canvas = 4 m = 8 panelů → falc každých 0,5 m
+  return makeMat(cC, cH, { roughness: 0.22, metalness: 0.80, baseRepeatX: 2.5, baseRepeatY: 1.5, normalStrength: 6 })
 }
 
 // ── 7. TRAPÉZOVÝ PLECH ────────────────────────────────────────────────────────

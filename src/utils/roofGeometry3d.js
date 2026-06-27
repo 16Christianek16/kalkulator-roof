@@ -43,10 +43,10 @@ function applyRepeat(mat, _slopeLen, _ridgeLen) {
 }
 
 // ── Reálný PBR materiál tašky (Poly Haven) místo procedurální textury ────────
-// Pro plošné plechové krytiny zůstává jednoduchý kovový materiál bez textury.
+// Plechové krytiny mají procedurální texturu s falci/žebry (viz roofTextures.js).
 function getKrytinaMaterial(krytina, roofColor, pbrTex) {
   if (isSheetMetal(krytina)) {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x7a8a7a, roughness: 0.3, metalness: 0.8, side: THREE.DoubleSide })
+    const mat = buildKrytinaMateriál(krytina)
     if (roofColor && roofColor !== '#ffffff') mat.color = new THREE.Color(roofColor)
     mat.userData.isKrytina = true
     return mat
