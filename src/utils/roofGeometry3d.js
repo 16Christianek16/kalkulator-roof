@@ -1918,16 +1918,19 @@ export function buildKlempirsky(typ, sirka, delka, sklon, presahOkap, presahStit
     group.add(m)
   })
 
-  // ── Závětrné listy (pro plechové krytiny) ────────────────────────────────
+  // ── Závětrné listy (pro plechové krytiny) — krajová lišta podél štítové hrany,
+  // obdoba krajové tašky u taškové krytiny. Visí na vnější hraně štítu (ne uprostřed
+  // zdi) a má viditelný profil, aby na svahu vypadala jako lišta, ne jako drát.
   if (sheet) {
     const lMat  = new THREE.MeshStandardMaterial({ color: 0x3a4050, roughness: 0.28, metalness: 0.68 })
-    const lLen  = Math.sqrt(hw * hw + h * h) + 0.12
+    const lLen  = Math.sqrt(hw * hw + h * h)   // přesně délka svahu — bez přesahu nad hřeben/okap
+    const lH    = 0.16                         // viditelná výška lišty
     ;[-1, 1].forEach(xSide => {
-      const xPos = xSide * hd
+      const xPos = xSide * (hd + 0.035)        // těsně vně štítové hrany, ne v ose zdi
       ;[-1, 1].forEach(zSide => {
         const midZ = zSide * hw / 2
         const midY = wH + h / 2
-        const list = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.005, lLen), lMat.clone())
+        const list = new THREE.Mesh(new THREE.BoxGeometry(0.07, lH, lLen), lMat.clone())
         list.position.set(xPos, midY, midZ)
         list.rotation.x = zSide * slRad
         list.castShadow = true
