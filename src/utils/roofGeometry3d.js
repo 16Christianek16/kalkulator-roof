@@ -1844,12 +1844,14 @@ export function buildKlempirsky(typ, sirka, delka, sklon, presahOkap, presahStit
   // ── Svody + kotlíky — POUZE na krajích budovy (rohy), nikdy uprostřed ──────
   // Kotlík (u žlabu) → koleno 1 → krátký vodorovný úsek ke zdi → koleno 2 →
   // svislý svod uchycený v objímkách 14 cm od líce zdi (osa svodu).
+  // Pouze na zadní straně (sign = -1, bez oken/vikýře/komína) — přední
+  // fasáda (sign = +1) zůstává bez svodů, voda se odvádí jen vzadu.
   const svodOffset = 0.14                 // vzdálenost osy svodu od zdi
   const svodPosX   = [-hd + 0.4, hd - 0.4] // jen oba krajní rohy
   const svodH      = wH - 0.20
 
   svodPosX.forEach(sx => {
-    ;[-1, 1].forEach(sign => {
+    ;[-1].forEach(sign => {
       const eaveSz = sign * hw                    // okap/žlab (vnější hrana přesahu)
       const wallSz = sign * (s / 2)                // skutečné líce zdi
       const svodSz = sign * (s / 2 + svodOffset)   // osa svodu — 14 cm od zdi
