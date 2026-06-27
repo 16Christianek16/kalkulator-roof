@@ -800,6 +800,7 @@ function addRidgeTiles(group, rx, rY, krytina = '', roofColor = '#ffffff', pbrTe
       false,
       -Math.PI / 2, Math.PI  // horní půlkruh (oblouk nahoru)
     )
+    ensureUV2(geo)
     const tile = new THREE.Mesh(geo, capMat)
     tile.rotation.z = Math.PI / 2   // osa tašky podél hřebene (X)
     tile.position.set(x, rY + tileR + 0.03, 0)
@@ -821,10 +822,9 @@ function addRidgeTiles(group, rx, rY, krytina = '', roofColor = '#ffffff', pbrTe
 
   // Čelní zakončení (kulatý uzávěr hřebene)
   ;[-rx, rx].forEach((ex, idx) => {
-    const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(tileR * 0.95, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-      capMat
-    )
+    const capGeo = new THREE.SphereGeometry(tileR * 0.95, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2)
+    ensureUV2(capGeo)
+    const cap = new THREE.Mesh(capGeo, capMat)
     cap.position.set(ex, rY + tileR + 0.03, 0)
     cap.rotation.y = idx === 0 ? Math.PI : 0
     cap.castShadow = true

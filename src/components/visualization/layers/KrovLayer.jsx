@@ -4,7 +4,6 @@ import { useWoodMaterial } from '../materials/usePBRMaterial'
 
 // Helper: sdílený dummy Object3D pro instancedMesh matice
 const _dummy = new THREE.Object3D()
-const _quat  = new THREE.Quaternion()
 const _yUp   = new THREE.Vector3(0, 1, 0)
 
 /**
@@ -52,7 +51,7 @@ export default function KrovLayer({ geo }) {
     uhel_rad, hrebenVyska, sirkaSvahu, delkaKrokve,
     poziceKrokvi, wallHeight, delka, presahStit,
     dimKrokev, dimVaznice, dimPozednice,
-    klestinyY, klestinyZ, klestinyDelka,
+    klestinyY, klestinyDelka,
     vaznicePosY, vaznicePosZ,
     hrebenY,
   } = geo

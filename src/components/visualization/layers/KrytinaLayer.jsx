@@ -16,11 +16,8 @@ const _dummy = new THREE.Object3D()
 export default function KrytinaLayer({ geo, typKrytiny = 'taskaBetonova', wireframe = false }) {
   const cfg = materialConfig[typKrytiny] ?? materialConfig.taskaBetonova
 
-  const tileMat  = usePBRMaterial(typKrytiny)
+  const tileMat  = usePBRMaterial(typKrytiny, wireframe)
   const ridgeMat = useRidgeMaterial(typKrytiny)
-
-  // Přepnutí wireframe
-  if (wireframe) { tileMat.wireframe = true } else { tileMat.wireframe = false }
 
   const {
     uhel_rad, hrebenVyska, sirkaSvahu, delkaKrokve,
@@ -42,7 +39,7 @@ export default function KrytinaLayer({ geo, typKrytiny = 'taskaBetonova', wirefr
   const isSheet = cfg.tileH === 0
 
   // ── Grid tašek ──────────────────────────────────────────────────────────
-  const { tileItems, ridgeItems, vergeItems, totalCount } = useMemo(() => {
+  const { tileItems, ridgeItems, vergeItems } = useMemo(() => {
     const halfL = delka / 2 + presahStit  // polovina délky vč. přesahu
     const tileItems = []
     const ridgeItems = []
@@ -50,8 +47,7 @@ export default function KrytinaLayer({ geo, typKrytiny = 'taskaBetonova', wirefr
 
     if (isSheet) {
       // PLECHOVÉ KRYTINY: pásy podél celého svahu
-      const panelW   = tileW   // šířka pásu
-      const panelLen = delkaKrokve + 0.05  // délka pásu (celý svah)
+      const panelW = tileW   // šířka pásu
       const nCols = Math.ceil((halfL * 2) / panelW) + 1
 
       for (let c = 0; c < nCols; c++) {
@@ -97,13 +93,8 @@ export default function KrytinaLayer({ geo, typKrytiny = 'taskaBetonova', wirefr
       vergeItems.push({ sign: -1 })
     }
 
-    return {
-      tileItems,
-      ridgeItems,
-      vergeItems,
-      totalCount: tileItems.length,
-    }
-  }, [delka, presahStit, tileW, tileH, tileT, overlap, delkaKrokve, isSheet])
+    return { tileItems, ridgeItems, vergeItems }
+  }, [delka, presahStit, tileW, tileH, overlap, delkaKrokve, isSheet])
 
   // ── Geometrie tašky ─────────────────────────────────────────────────────
   const tileGeo = useMemo(() => {

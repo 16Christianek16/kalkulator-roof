@@ -1,4 +1,4 @@
-import { useRef, useMemo, Suspense } from 'react'
+import { useMemo, useEffect, Suspense } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment, GizmoHelper, GizmoViewport } from '@react-three/drei'
 import * as THREE from 'three'
@@ -10,7 +10,7 @@ import { calculateRoofGeometry } from './geometry/roofGeometry'
 /** Zdi budovy — jednoduchý Box s okny naznačenými jako tmavší plochy */
 function ZdiDomu({ params, geo }) {
   const { rozpeti = 8, delka = 12 } = params
-  const { wallHeight, sirkaSvahu, uhel_rad, hrebenVyska } = geo
+  const { wallHeight } = geo
 
   const wallMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: '#f0ece4',
@@ -45,11 +45,13 @@ function ZdiDomu({ params, geo }) {
 /** Komponenta pro reset kamery — volána z vně přes ref */
 function CameraController({ resetRef, defaultPos }) {
   const { camera, controls } = useThree()
-  resetRef.current = () => {
-    camera.position.set(...defaultPos)
-    camera.lookAt(0, defaultPos[1] * 0.4, 0)
-    if (controls) controls.target.set(0, defaultPos[1] * 0.4, 0)
-  }
+  useEffect(() => {
+    resetRef.current = () => {
+      camera.position.set(...defaultPos)
+      camera.lookAt(0, defaultPos[1] * 0.4, 0)
+      if (controls) controls.target.set(0, defaultPos[1] * 0.4, 0)
+    }
+  }, [resetRef, defaultPos, camera, controls])
   return null
 }
 

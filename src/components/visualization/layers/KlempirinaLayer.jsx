@@ -1,7 +1,31 @@
-import { useMemo } from 'react'
+import { useRef, useMemo, useLayoutEffect } from 'react'
 import * as THREE from 'three'
 import { useMetalMaterial } from '../materials/usePBRMaterial'
-import { createGutterPath, getSvodPositions, getHookPositions } from '../geometry/klempirinaGeometry'
+import { getSvodPositions, getHookPositions } from '../geometry/klempirinaGeometry'
+
+const _dummy = new THREE.Object3D()
+
+/** instancedMesh pro háky žlabu — počet roste s délkou okapu, proto instancováno. */
+function InstancedHooks({ geometry, material, items, uhel_rad }) {
+  const ref = useRef()
+  useLayoutEffect(() => {
+    const mesh = ref.current
+    if (!mesh || items.length === 0) return
+    items.forEach((hak, i) => {
+      _dummy.position.set(hak.x, hak.y, hak.z)
+      _dummy.rotation.set(Math.sign(hak.z) * (Math.PI / 2 - uhel_rad), 0, 0)
+      _dummy.updateMatrix()
+      mesh.setMatrixAt(i, _dummy.matrix)
+    })
+    mesh.instanceMatrix.needsUpdate = true
+  }, [items, uhel_rad])
+
+  if (items.length === 0) return null
+  return (
+    <instancedMesh ref={ref} args={[geometry, material, items.length]} castShadow>
+    </instancedMesh>
+  )
+}
 
 /**
  * KlempirinaLayer — klempířské prvky:
@@ -11,27 +35,18 @@ export default function KlempirinaLayer({ geo, wireframe = false }) {
   const prumerZlabu = geo.prumerZlabu ?? 0.15
   const prumerSvodu = geo.prumerSvodu ?? 0.10
 
-  const matZinc   = useMetalMaterial('#8a9ba8')   // šedý zinek
-  const matCopper = useMetalMaterial('#a07840')   // měď (kotlíky)
-  const matDark   = useMetalMaterial('#4a5560')   // tmavý plech (závětrné listy)
-
-  if (wireframe) matZinc.wireframe = true
-  else matZinc.wireframe = false
+  const matZinc   = useMetalMaterial('#8a9ba8', wireframe)   // šedý zinek
+  const matCopper = useMetalMaterial('#a07840')               // měď (kotlíky)
+  const matDark   = useMetalMaterial('#4a5560')               // tmavý plech (závětrné listy)
 
   const { wallHeight, hrebenVyska, sirkaSvahu, delka, presahStit, uhel_rad } = geo
 
   const halfLen = delka / 2 + presahStit
 
   // ── Geometrie žlabu ─────────────────────────────────────────────────────
-  // Půlkruhový žlab jako TubeGeometry s půlkruhovým průřezem
+  // Půlkruhový žlab jako CylinderGeometry otočený horizontálně (úsek π = polovina pláště)
   const zlobGeo = useMemo(() => {
     const r = prumerZlabu / 2
-    const path = new THREE.LineCurve3(
-      new THREE.Vector3(-halfLen - 0.20, 0, 0),
-      new THREE.Vector3( halfLen + 0.20, 0, 0)
-    )
-    // Vytvoříme půlkruhový průřez jako custom TubeGeometry
-    // Alternativa: CylinderGeometry otočený horizontálně
     return new THREE.CylinderGeometry(r, r, halfLen * 2 + 0.40, 12, 1, false, 0, Math.PI)
   }, [halfLen, prumerZlabu])
 
@@ -74,6 +89,7 @@ export default function KlempirinaLayer({ geo, wireframe = false }) {
   // Pozice háků
   const hakPosPlus  = getHookPositions(geo, 'pos')
   const hakPosMinus = getHookPositions(geo, 'neg')
+  const hakItems = useMemo(() => [...hakPosPlus, ...hakPosMinus], [hakPosPlus, hakPosMinus])
 
   const okapY    = wallHeight
   const hrebenY  = wallHeight + hrebenVyska
@@ -93,13 +109,8 @@ export default function KlempirinaLayer({ geo, wireframe = false }) {
         )
       })}
 
-      {/* ── Háky žlabů ────────────────────────────────────────────────────── */}
-      {[...hakPosPlus, ...hakPosMinus].map((hak, i) => (
-        <mesh key={i} geometry={hakGeo} material={matZinc}
-          position={[hak.x, hak.y, hak.z]}
-          rotation={[Math.sign(hak.z) * (Math.PI / 2 - uhel_rad), 0, 0]}
-          castShadow />
-      ))}
+      {/* ── Háky žlabů (instancedMesh) ───────────────────────────────────── */}
+      <InstancedHooks geometry={hakGeo} material={matZinc} items={hakItems} uhel_rad={uhel_rad} />
 
       {/* ── Svody ─────────────────────────────────────────────────────────── */}
       {[...svodPosPlus, ...svodPosMinus].map((svod, i) => (

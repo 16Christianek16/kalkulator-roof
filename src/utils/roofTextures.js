@@ -44,17 +44,63 @@ function heightToNormal(hCanvas, strength = 4) {
   return nC
 }
 
+// ── Height map → Roughness map ─────────────────────────────────────────────────
+// Vyvýšené hrany tašky (hřebeny vlny) jsou o trochu hladší (lehký odlesk
+// vypálené glazury), spáry a údolí zůstávají plně matné — keramika nikdy
+// nesmí vypadat jako plast, proto je rozsah variace malý.
+function heightToRoughness(hCanvas, { base = 0.92, variance = 0.16 } = {}) {
+  const W = hCanvas.width, H = hCanvas.height
+  const hCtx = hCanvas.getContext('2d')
+  const hData = hCtx.getImageData(0, 0, W, H)
+  const [rC, rCtx] = makeCanvas(W, H)
+  const rImg = rCtx.createImageData(W, H)
+  const src = hData.data, dst = rImg.data
+  for (let i = 0; i < src.length; i += 4) {
+    const h = src[i] / 255
+    const v = Math.round(Math.max(0, Math.min(1, base - variance * h)) * 255)
+    dst[i] = dst[i + 1] = dst[i + 2] = v
+    dst[i + 3] = 255
+  }
+  rCtx.putImageData(rImg, 0, 0)
+  return rC
+}
+
+// ── Height map → Ambient Occlusion map ─────────────────────────────────────────
+// Spáry/údolí (nízká výška) ztemníme výrazně víc než lineárně — to dává
+// největší pocit hloubky mezi jednotlivými taškami.
+function heightToAO(hCanvas, { darkenGaps = 1.7, minAO = 0.32 } = {}) {
+  const W = hCanvas.width, H = hCanvas.height
+  const hCtx = hCanvas.getContext('2d')
+  const hData = hCtx.getImageData(0, 0, W, H)
+  const [aC, aCtx] = makeCanvas(W, H)
+  const aImg = aCtx.createImageData(W, H)
+  const src = hData.data, dst = aImg.data
+  for (let i = 0; i < src.length; i += 4) {
+    const h = src[i] / 255
+    const v = Math.round((minAO + (1 - minAO) * Math.pow(h, darkenGaps)) * 255)
+    dst[i] = dst[i + 1] = dst[i + 2] = v
+    dst[i + 3] = 255
+  }
+  aCtx.putImageData(aImg, 0, 0)
+  return aC
+}
+
 // ── Material factory ──────────────────────────────────────────────────────────
 function makeMat(colorCanvas, heightCanvas, {
   roughness = 0.88, metalness = 0,
   baseRepeatX = 1, baseRepeatY = 1,
   normalStrength = 4,
+  roughnessBase, roughnessVariance,
+  aoDarkenGaps, aoMinAO,
 } = {}) {
   const tex = new THREE.CanvasTexture(colorCanvas)
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping
   tex.anisotropy = 8
 
-  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness, metalness, side: THREE.DoubleSide })
+  const mat = new THREE.MeshStandardMaterial({
+    map: tex, roughness, metalness, side: THREE.DoubleSide,
+    aoMapIntensity: 1.4, envMapIntensity: 0.3,
+  })
 
   if (heightCanvas) {
     const nC = heightToNormal(heightCanvas, normalStrength)
@@ -62,6 +108,20 @@ function makeMat(colorCanvas, heightCanvas, {
     nTex.wrapS = nTex.wrapT = THREE.RepeatWrapping
     mat.normalMap = nTex
     mat.normalScale = new THREE.Vector2(1, 1)
+
+    // Roughness map — keramický povrch s lehce hladšími hřebeny vlny
+    const rC = heightToRoughness(heightCanvas, {
+      base: roughnessBase ?? roughness, variance: roughnessVariance ?? 0.16,
+    })
+    const rTex = new THREE.CanvasTexture(rC)
+    rTex.wrapS = rTex.wrapT = THREE.RepeatWrapping
+    mat.roughnessMap = rTex
+
+    // AO map — ztemněné spáry mezi taškami (vyžaduje uv2, viz ensureUV2)
+    const aC = heightToAO(heightCanvas, { darkenGaps: aoDarkenGaps ?? 1.7, minAO: aoMinAO ?? 0.32 })
+    const aTex = new THREE.CanvasTexture(aC)
+    aTex.wrapS = aTex.wrapT = THREE.RepeatWrapping
+    mat.aoMap = aTex
   }
 
   mat.userData = { baseRepeatX, baseRepeatY }
@@ -73,8 +133,9 @@ function cached(key, fn) {
   if (!CACHE.has(key)) CACHE.set(key, fn())
   const base = CACHE.get(key)
   const mat = base.clone()
-  if (base.map)       { mat.map = base.map.clone();           mat.map.needsUpdate = true }
-  if (base.normalMap) { mat.normalMap = base.normalMap.clone(); mat.normalMap.needsUpdate = true }
+  ;['map', 'normalMap', 'roughnessMap', 'aoMap'].forEach(k => {
+    if (base[k]) { mat[k] = base[k].clone(); mat[k].needsUpdate = true }
+  })
   mat.userData = { ...base.userData }
   return mat
 }
@@ -151,13 +212,13 @@ function drawBobrovka() {
   return makeMat(cC, cH, { roughness: 0.90, baseRepeatX: 7.5, baseRepeatY: 5.0, normalStrength: 5 })
 }
 
-// ── 2. PÁLENÁ TAŠKA (esovitá/vlnitá) ─────────────────────────────────────────
+// ── 2. PÁLENÁ TAŠKA (esovitá/vlnitá, Tondach styl) ──────────────────────────
 function drawPalenaTaska(hue = 14, sat = 65, light = 42) {
   const [cC, ctx] = makeCanvas()
   const [cH, hCtx] = makeCanvas()
   const tW = 72, tH = 54, gap = 3
 
-  ctx.fillStyle = '#150804'; hCtx.fillStyle = '#111'
+  ctx.fillStyle = '#0c0502'; hCtx.fillStyle = '#0a0a0a'
   ctx.fillRect(0, 0, SZ, SZ); hCtx.fillRect(0, 0, SZ, SZ)
 
   const rows = Math.ceil(SZ / tH) + 2
@@ -168,43 +229,56 @@ function drawPalenaTaska(hue = 14, sat = 65, light = 42) {
     for (let col = -1; col < cols; col++) {
       const x = col * tW - ox, y = row * tH
 
-      ctx.fillStyle = hv(col, row, hue, sat, light, 7)
+      // Per-taška barevná variace — nejen jas, ale i mírný posun odstínu/sytosti
+      // (přirozené "aging", tón v tónu, ne uniformní plast)
+      const hueJ = Math.sin(col * 5.3 + row * 2.1) * 2.5
+      const satJ = Math.cos(col * 3.1 + row * 6.7) * 6
+      ctx.fillStyle = hv(col, row, hue + hueJ, sat + satJ, light, 11)
       ctx.fillRect(x + gap, y + gap, tW - gap * 2, tH - gap * 2)
 
-      // S-profil: vlna přes šířku dlaždice
+      // S-profil: výrazná vlna přes šířku dlaždice + jemná keramická zrnitost
       for (let px = 0; px < tW - gap * 2; px++) {
         const wave = Math.sin((px / (tW - gap * 2)) * Math.PI * 2 - Math.PI / 2) * 0.5 + 0.5
-        const bright = 0.35 * wave - 0.18
+        const grain = (Math.sin(px * 9.7 + col * 13.1 + row * 4.9) * 0.5 + 0.5) * 0.05
+        const bright = 0.55 * wave - 0.28 + grain - 0.025
         if (bright > 0) {
           ctx.fillStyle = `rgba(255,255,255,${bright})`
           ctx.fillRect(x + gap + px, y + gap, 1, tH - gap * 2)
         } else {
-          ctx.fillStyle = `rgba(0,0,0,${-bright * 1.4})`
+          ctx.fillStyle = `rgba(0,0,0,${-bright * 1.5})`
           ctx.fillRect(x + gap + px, y + gap, 1, tH - gap * 2)
         }
       }
 
-      // Horizontální stín nahoře/dole
+      // Horizontální stín nahoře/dole — výraznější přesah/spára
       const vg = ctx.createLinearGradient(0, y + gap, 0, y + tH - gap)
-      vg.addColorStop(0,    'rgba(255,255,255,0.15)')
-      vg.addColorStop(0.25, 'rgba(0,0,0,0)')
-      vg.addColorStop(0.75, 'rgba(0,0,0,0)')
-      vg.addColorStop(1,    'rgba(0,0,0,0.40)')
+      vg.addColorStop(0,    'rgba(255,255,255,0.22)')
+      vg.addColorStop(0.22, 'rgba(0,0,0,0)')
+      vg.addColorStop(0.78, 'rgba(0,0,0,0)')
+      vg.addColorStop(1,    'rgba(0,0,0,0.55)')
       ctx.fillStyle = vg
       ctx.fillRect(x + gap, y + gap, tW - gap * 2, tH - gap * 2)
 
-      // Height map — S-vlna
-      hCtx.fillStyle = '#666'
+      // Height map — hlubší S-vlna + zrnitost (řídí normal/roughness/AO mapy)
+      hCtx.fillStyle = '#555'
       hCtx.fillRect(x + gap, y + gap, tW - gap * 2, tH - gap * 2)
       for (let px = 0; px < tW - gap * 2; px++) {
         const wave = Math.sin((px / (tW - gap * 2)) * Math.PI * 2 - Math.PI / 2) * 0.5 + 0.5
-        const gray = Math.round(60 + wave * 140)
+        const grain = (Math.sin(px * 9.7 + col * 13.1 + row * 4.9) * 0.5 + 0.5) * 14
+        const gray = Math.max(0, Math.min(255, Math.round(34 + wave * 200 + grain)))
         hCtx.fillStyle = `rgb(${gray},${gray},${gray})`
         hCtx.fillRect(x + gap + px, y + gap, 1, tH - gap * 2)
       }
+      // Tmavý pruh u spodní hrany — stín vrhaný taškou přesahující odshora
+      hCtx.fillStyle = 'rgba(0,0,0,0.6)'
+      hCtx.fillRect(x + gap, y + tH - gap - 5, tW - gap * 2, 5)
     }
   }
-  return makeMat(cC, cH, { roughness: 0.87, baseRepeatX: 7.0, baseRepeatY: 4.5, normalStrength: 6 })
+  return makeMat(cC, cH, {
+    roughness: 0.90, baseRepeatX: 7.0, baseRepeatY: 4.5, normalStrength: 8,
+    roughnessBase: 0.92, roughnessVariance: 0.20,
+    aoDarkenGaps: 1.8, aoMinAO: 0.28,
+  })
 }
 
 // ── 2b. PÁLENÁ DRSNATA (420×275 mm — plochá taška s drsným povrchem) ──────────
