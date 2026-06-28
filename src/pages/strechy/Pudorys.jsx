@@ -9,6 +9,7 @@ import ResultCard from '../../components/ui/ResultCard'
 import ZakazkaModal from '../../components/ui/ZakazkaModal'
 import Preview3DErrorBoundary from '../../components/ui/Preview3DErrorBoundary'
 import KrytinaColorPicker from '../../components/ui/KrytinaColorPicker'
+import RoofDimensionsCanvas from '../../components/ui/RoofDimensionsCanvas'
 import { useRoofStore } from '../../store/roofStore'
 import { krytinyOptions, getKrytina } from '../../data/krytiny'
 import { formatNum } from '../../utils/calculations'
@@ -454,66 +455,11 @@ function DetailyTable({ krytina, sklon }) {
   )
 }
 
-// ─── Editovatelná kóta v SVG — klik na text změní hodnotu přímo v půdorysu ────
-function EditableDimText({ x, y, value, unit = 'm', onCommit, fontSize = 11, color, fontWeight = 700,
-  rotate = 0, width = 76, height = 20, step = 0.1, min = 0.1, max = 200 }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
-  const inputRef = useRef(null)
-
-  useEffect(() => {
-    if (editing) requestAnimationFrame(() => { inputRef.current?.focus(); inputRef.current?.select() })
-  }, [editing])
-
-  const startEdit = () => { setDraft(value); setEditing(true) }
-
-  const commit = () => {
-    const v = parseFloat(String(draft).replace(',', '.'))
-    if (!isNaN(v) && v >= min && v <= max) onCommit?.(v)
-    setEditing(false)
-  }
-
-  if (editing) {
-    return (
-      <foreignObject x={x - width / 2} y={y - height / 2} width={width} height={height}
-        transform={rotate ? `rotate(${rotate}, ${x}, ${y})` : undefined}>
-        <input
-          ref={inputRef}
-          type="number" step={step} min={min} max={max}
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={e => {
-            if (e.key === 'Enter') commit()
-            if (e.key === 'Escape') setEditing(false)
-          }}
-          style={{
-            width: '100%', height: '100%', fontSize, fontWeight, textAlign: 'center',
-            border: '1.5px solid var(--amber)', borderRadius: 4, color: '#1a1a1a',
-            outline: 'none', padding: 0, boxSizing: 'border-box', background: '#fff',
-          }}
-        />
-      </foreignObject>
-    )
-  }
-
-  return (
-    <text x={x} y={y} textAnchor="middle" fontSize={fontSize} fill={color} fontWeight={fontWeight}
-      transform={rotate ? `rotate(${rotate}, ${x}, ${y})` : undefined}
-      onClick={startEdit}
-      style={{ cursor: 'pointer' }}
-      textDecoration="underline" textDecorationStyle="dotted">
-      {(typeof value === 'number' ? value.toFixed(unit === '°' ? 0 : 2) : value)}{unit === '°' ? '°' : ` ${unit}`}
-    </text>
-  )
-}
-
 // ─── PŮDORYS SVG ──────────────────────────────────────────────────────────────
 const SVG_W = 560, SVG_H = 320
 const ML = 90, MT = 40, MR = 40, MB = 65
 
-function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi, view = 'strecha', vikyre = [], sklon = 35,
-  onChangeSirka, onChangeDelka, onChangeSklon }) {
+function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi, view = 'strecha', vikyre = [] }) {
   const s   = parseFloat(sirka)      || 8
   const d   = parseFloat(delka)      || 12
   const po  = parseFloat(presahOkap) || 0
@@ -682,26 +628,22 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi, v
         </>
       )}
 
-      {/* Kóta délka — klik na kótu upraví délku budovy */}
+      {/* Kóta délka */}
       {(() => {
-        const y = oy + drawW + 26
+        const y = oy + drawW + 28
         return <g>
           <line x1={ox} y1={oy+drawW+6} x2={ox} y2={y+4} stroke={dimColor} strokeWidth={0.8} />
           <line x1={ox+drawL} y1={oy+drawW+6} x2={ox+drawL} y2={y+4} stroke={dimColor} strokeWidth={0.8} />
           <line x1={ox} y1={y} x2={ox+drawL} y2={y} stroke={dimColor} strokeWidth={1} />
           <path d={arw(ox, y, 'r')} fill={dimColor} />
           <path d={arw(ox+drawL, y, 'l')} fill={dimColor} />
-          {ps > 0 && (
-            <text x={cx} y={y+13} textAnchor="middle" fontSize={9} fill="#94a3b8">
-              celkem {(d+2*ps).toFixed(2)} m s přesahem
-            </text>
-          )}
-          <EditableDimText x={cx} y={y + (ps > 0 ? 27 : 14)} value={d} unit="m"
-            onCommit={onChangeDelka} fontSize={11} color={dimColor} fontWeight={700} min={2} max={60} />
+          <text x={cx} y={y+14} textAnchor="middle" fontSize={11} fill={dimColor} fontWeight="700">
+            {(d+2*ps).toFixed(2)} m{ps>0 ? ` (bud. ${d} m)` : ''}
+          </text>
         </g>
       })()}
 
-      {/* Kóta šířka — klik na kótu upraví šířku budovy */}
+      {/* Kóta šířka */}
       {(() => {
         const x = ox - 30
         return <g>
@@ -710,25 +652,10 @@ function PudorysSVG({ typ, sirka, delka, presahOkap, presahStit, roztecKrokvi, v
           <line x1={x} y1={oy} x2={x} y2={oy+drawW} stroke={dimColor} strokeWidth={1} />
           <path d={arw(x, oy, 'd')} fill={dimColor} />
           <path d={arw(x, oy+drawW, 'u')} fill={dimColor} />
-          {po > 0 && (
-            <text x={x-19} y={oy+drawW/2} textAnchor="middle" fontSize={9} fill="#94a3b8"
-              transform={`rotate(-90,${x-19},${oy+drawW/2})`}>
-              celkem {(s+2*po).toFixed(2)} m s přesahem
-            </text>
-          )}
-          <EditableDimText x={po > 0 ? x-5 : x-6} y={oy+drawW/2} value={s} unit="m"
-            onCommit={onChangeSirka} fontSize={11} color={dimColor} fontWeight={700} min={2} max={40}
-            rotate={-90} />
-        </g>
-      })()}
-
-      {/* Kóta sklon — klik na kótu upraví sklon střechy */}
-      {(() => {
-        const y = oy - 28
-        return <g>
-          <text x={cx - 28} y={y + 4} fontSize={10} fill="#1a6fc4" fontWeight={600}>Sklon:</text>
-          <EditableDimText x={cx + 14} y={y} value={parseFloat(sklon) || 35} unit="°"
-            onCommit={onChangeSklon} fontSize={11} color="#1a6fc4" fontWeight={700} min={5} max={75} step={1} width={50} />
+          <text x={x-6} y={oy+drawW/2} textAnchor="middle" fontSize={11} fill={dimColor} fontWeight="700"
+            transform={`rotate(-90,${x-6},${oy+drawW/2})`}>
+            {(s+2*po).toFixed(2)} m{po>0 ? ` (bud. ${s} m)` : ''}
+          </text>
         </g>
       })()}
 
@@ -789,7 +716,6 @@ export default function Pudorys() {
   const [showModal, setShowModal] = useState(false)
   const [view3d,    setView3d]    = useState(false)
   const [drawTab,   setDrawTab]   = useState('pudorys')
-  const [pudorysView, setPudorysView] = useState('strecha')
   const [krytinaColor, setKrytinaColor] = useState('#ffffff')
   const [csvError,  setCsvError]  = useState('')
   const [showVikyre,  setShowVikyre]  = useState(true)
@@ -905,15 +831,17 @@ export default function Pudorys() {
               </div>
             )}
 
-            {/* Základní parametry — šířka, délka a sklon se nastavují přímo kliknutím na kótu v půdorysu vpravo */}
+            {/* Základní parametry — šířka, délka a přesahy se nastavují tažením za body v interaktivním půdorysu/řezu vpravo */}
             <div className="rounded-lg px-3 py-2.5 flex items-start gap-2" style={{ background: '#f0f4ff', border: '1px solid var(--cream3)' }}>
               <Ruler size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--amber)' }} />
               <p className="text-xs" style={{ color: 'var(--text2)' }}>
-                Šířku ({parseFloat(sirka).toFixed(1)} m), délku ({parseFloat(delka).toFixed(1)} m) a sklon ({parseFloat(sklon).toFixed(0)}°) upravíte kliknutím na podtrženou kótu přímo v půdorysu.
+                Šířku, délku a přesahy upravíte tažením oranžových bodů v půdorysu a řezu vpravo.
               </p>
             </div>
-            <InputField label={t('roof.presahOkap')} value={presahOkap} onChange={setPresahOkap} unit="m"  min={0}   step={0.1} />
-            <InputField label={t('roof.presahStit')} value={presahStit} onChange={setPresahStit} unit="m"  min={0}   step={0.1} />
+            <div className="flex flex-col gap-1.5">
+              <SliderRow label="Sklon střechy" min={5} max={75} step={1} value={parseFloat(sklon) || 35}
+                onChange={setSklon} format={v => `${v}°`} />
+            </div>
             <div>
               <InputField label={t('roof.roztecKrokvi')} value={roztecKrokvi} onChange={setRoztecKrokvi}
                 unit="mm" min={400} max={1500} step={50} hint="Doporučeno 700–1000 mm (ČSN 73 1702)" />
@@ -997,24 +925,12 @@ export default function Pudorys() {
                 </Suspense>
               </Preview3DErrorBoundary>
             ) : (
-              <div className="overflow-x-auto">
-                {/* Toggle krov / střecha pro půdorys */}
-                <div className="flex gap-1 mb-2">
-                  {[{id:'strecha',label:'🏠 Střecha'},{id:'krov',label:'🪵 Krov'}].map(v => (
-                    <button key={v.id} onClick={() => setPudorysView(v.id)}
-                      className="px-3 py-1 rounded font-condensed font-bold uppercase border-2 transition-colors"
-                      style={{ fontSize: 11, ...(pudorysView === v.id
-                        ? { background: 'var(--amber)', color: 'var(--wood-dark)', borderColor: 'var(--amber)' }
-                        : { background: '#fff', color: 'var(--text3)', borderColor: 'var(--cream3)' }) }}>
-                      {v.label}
-                    </button>
-                  ))}
-                </div>
-                <PudorysSVG typ={typ} sirka={sirka} delka={delka}
-                  presahOkap={presahOkap} presahStit={presahStit} roztecKrokvi={roztecKrokvi}
-                  view={pudorysView} vikyre={vikyre} sklon={sklon}
-                  onChangeSirka={setSirka} onChangeDelka={setDelka} onChangeSklon={setSklon} />
-              </div>
+              <RoofDimensionsCanvas
+                typ={typ} sirka={sirka} delka={delka} sklon={sklon}
+                presahOkap={presahOkap} presahStit={presahStit} vyskaZdi={vyskaZdi}
+                kridloSirka={kridloSirka} kridloDelka={kridloDelka}
+                onChangeSirka={setSirka} onChangeDelka={setDelka} onChangeSklon={setSklon}
+                onChangePresahOkap={setPresahOkap} onChangePresahStit={setPresahStit} />
             )}
           </CalcCard>
 
@@ -1039,8 +955,7 @@ export default function Pudorys() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              {drawTab === 'pudorys' && <PudorysSVG typ={typ} sirka={sirka} delka={delka} presahOkap={presahOkap} presahStit={presahStit} roztecKrokvi={roztecKrokvi} view={pudorysView} vikyre={vikyre} sklon={sklon}
-                onChangeSirka={setSirka} onChangeDelka={setDelka} onChangeSklon={setSklon} />}
+              {drawTab === 'pudorys' && <PudorysSVG typ={typ} sirka={sirka} delka={delka} presahOkap={presahOkap} presahStit={presahStit} roztecKrokvi={roztecKrokvi} view="strecha" vikyre={vikyre} sklon={sklon} />}
               {drawTab === 'rez'     && <RezSVG typ={typ} sirka={sirka} sklon={sklon} presahOkap={presahOkap} vyskaZdi={vyskaZdi} />}
               {drawTab === 'pohledy' && <PohledySVG typ={typ} sirka={sirka} delka={delka} sklon={sklon} presahOkap={presahOkap} presahStit={presahStit} vyskaZdi={vyskaZdi} />}
               {drawTab === 'detaily' && <DetailyTable krytina={krytina} sklon={sklon} />}
