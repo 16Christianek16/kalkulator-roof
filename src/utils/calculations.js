@@ -144,6 +144,54 @@ export const pocetKrokviStrany = (delka_m, rozteč_mm) =>
 export const skutecnaRoztecKrokvi = (delka_m, rozteč_mm) =>
   (delka_m / pocetMezerKrokvi(delka_m, rozteč_mm)) * 1000  // výsledek v mm
 
+// --- PRAVÝ PANEL PŮDORYSU: orientační spotřeba materiálu (knihovna/výpočty) ---
+// Počet tašek krytiny vč. rezervy
+export const pocetTasekKrytiny = (plocha_m2, ks_m2, rezerva_pct = 0) =>
+  Math.round(plocha_m2 * ks_m2 * (1 + rezerva_pct / 100))
+
+// Hřebenáče — hřeben + přesah na obou koncích, 1 ks ≈ 0,33 m
+export const pocetHrebenacu = (delka_m, dilkaKs_m = 0.33) =>
+  Math.max(1, Math.round(delka_m / dilkaKs_m))
+
+// Krajové tašky — podél obou štítových hran (2 × délka krokve), 1 ks ≈ 0,33 m
+export const pocetKrajovychTasek = (delkaKrokve_m, dilkaKs_m = 0.33) =>
+  Math.max(1, Math.round((2 * delkaKrokve_m) / dilkaKs_m))
+
+// Větrací tašky — orientačně 1 ks na ~18 m² plochy
+export const pocetVetracichTasek = (plocha_m2, naM2 = 18) =>
+  Math.max(2, Math.round(plocha_m2 / naM2))
+
+// Sněhové zábrany — podél okapové hrany (délka + drobná rezerva na konce)
+export const delkaSnehovychZabran = (delka_m, presahStit_m = 0) =>
+  round(delka_m + 2 * presahStit_m, 1)
+
+// Okapy — 2 podélné žlaby (přední + zadní), v délce vč. štítových přesahů
+export const delkaOkapu = (delka_m, presahStit_m) =>
+  round(2 * (delka_m + 2 * presahStit_m), 1)
+
+// Svody — 4 rohy domu, délka = výška okapu (výška zdi)
+export const delkaSvodu = (vyskaZdi_m, pocetSvodu = 4) =>
+  round(pocetSvodu * vyskaZdi_m, 1)
+
+export const pocetKolenSvodu = (pocetSvodu = 4, kolenNaSvod = 2) => pocetSvodu * kolenNaSvod
+export const pocetKotliku    = (pocetSvodu = 4) => pocetSvodu
+
+// --- KLEMPÍŘSKÉ PRVKY (orientační, podél hran střechy) ---
+// Okapnice — kapající plech podél okapové hrany (stejná trasa jako žlaby)
+export const delkaOkapnice = (delka_m, presahStit_m) => delkaOkapu(delka_m, presahStit_m)
+
+// Úžlabí — jen u střech, kde reálně vzniká (vikýře, L/T tvar); 0 jinak
+export const delkaUzlabi = (delkaKrokve_m, pocetUzlabi = 0) =>
+  round(pocetUzlabi * delkaKrokve_m, 1)
+
+// Hřebenový plech — hřeben + přesah ~0,5 m na každou stranu
+export const delkaHrebenovehoPlechu = (delka_m, presah_m = 0.5) =>
+  round(delka_m + 2 * presah_m, 1)
+
+// Oplechování (úžlabí, štítů, prostupů) — orientační odhad podle obou svahů
+export const delkaOplechovani = (delkaKrokve_m, koef = 1.42) =>
+  round(2 * delkaKrokve_m * koef, 1)
+
 // --- POMOCNÉ ---
 export const round = (val, decimals = 2) => {
   const factor = Math.pow(10, decimals)

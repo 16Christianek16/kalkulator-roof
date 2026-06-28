@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useRef, useState, lazy, Suspense } from 'react'
-import { LayoutDashboard, FileDown, Upload, Box, Map, Plus, Trash2, ChevronDown, ChevronUp, Ruler } from 'lucide-react'
+import { LayoutDashboard, FileDown, Upload, Box, Map, Plus, Trash2, ChevronDown, ChevronUp, Ruler, Eye, EyeOff } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '../../components/ui/PageHeader'
@@ -10,6 +10,7 @@ import ZakazkaModal from '../../components/ui/ZakazkaModal'
 import Preview3DErrorBoundary from '../../components/ui/Preview3DErrorBoundary'
 import KrytinaColorPicker from '../../components/ui/KrytinaColorPicker'
 import RoofDimensionsCanvas from '../../components/ui/RoofDimensionsCanvas'
+import RightPanelVypocty from '../../components/ui/RightPanelVypocty'
 import { useRoofStore } from '../../store/roofStore'
 import { krytinyOptions, getKrytina } from '../../data/krytiny'
 import { formatNum } from '../../utils/calculations'
@@ -683,6 +684,16 @@ const DRAW_TABS = [
   { id: 'detaily', label: 'DETAILY' },
 ]
 
+// ─── Vrstvy skladby střechy — informativní přehled v levém panelu ────────────
+const VRSTVY = [
+  { id: 'krov',      label: 'Krov',               color: 'var(--amber)' },
+  { id: 'folie',     label: 'Fólie',               color: '#3b82f6' },
+  { id: 'late',       label: 'Latě',                color: 'var(--amber)' },
+  { id: 'kontralate', label: 'Kontralatě',          color: 'var(--red-tile)' },
+  { id: 'krytina',   label: 'Krytina',             color: 'var(--red-tile)' },
+  { id: 'klempir',   label: 'Klempířské prvky',    color: 'var(--text3)' },
+]
+
 // ─── Mini slider s popisem hodnoty ───────────────────────────────────────────
 function SliderRow({ label, min, max, step, value, onChange, format }) {
   return (
@@ -690,7 +701,7 @@ function SliderRow({ label, min, max, step, value, onChange, format }) {
       <span className="text-xs shrink-0" style={{ color: 'var(--text3)', minWidth: 70 }}>{label}</span>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={e => onChange(parseFloat(e.target.value))}
-        className="flex-1 h-1.5" style={{ cursor: 'pointer', accentColor: 'var(--amber)' }} />
+        className="flex-1 h-1.5" style={{ cursor: 'pointer', accentColor: 'var(--amber)', minWidth: 0 }} />
       <span className="text-xs font-mono font-semibold shrink-0" style={{ color: 'var(--text2)', minWidth: 32, textAlign: 'right' }}>
         {format ? format(value) : value}
       </span>
@@ -717,6 +728,7 @@ export default function Pudorys() {
   const [view3d,    setView3d]    = useState(false)
   const [drawTab,   setDrawTab]   = useState('pudorys')
   const [krytinaColor, setKrytinaColor] = useState('#ffffff')
+  const [vrstvyViditelne, setVrstvyViditelne] = useState({})
   const [csvError,  setCsvError]  = useState('')
   const [showVikyre,  setShowVikyre]  = useState(true)
   const [showOkna,    setShowOkna]    = useState(true)
@@ -790,7 +802,7 @@ export default function Pudorys() {
         icon={LayoutDashboard}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_260px] gap-5">
 
         {/* ── Levý panel — parametry ── */}
         <CalcCard title={t('roof.typLabel')}>
@@ -842,6 +854,29 @@ export default function Pudorys() {
               <SliderRow label="Sklon střechy" min={5} max={75} step={1} value={parseFloat(sklon) || 35}
                 onChange={setSklon} format={v => `${v}°`} />
             </div>
+
+            {/* Vrstvy střechy — vizuální přehled skladby, viditelnost je informativní */}
+            <div>
+              <p className="font-condensed font-bold uppercase mb-1.5" style={{ fontSize: 10, letterSpacing: '0.15em', color: 'var(--text3)' }}>
+                Vrstvy střechy
+              </p>
+              <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--cream3)' }}>
+                {VRSTVY.map((v, i) => (
+                  <div key={v.id} className="flex items-center justify-between px-2.5 py-1.5"
+                    style={{ borderTop: i > 0 ? '1px solid var(--cream3)' : 'none', background: '#fff' }}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: v.color }} />
+                      <span className="text-xs truncate" style={{ color: 'var(--text2)' }}>{v.label}</span>
+                    </div>
+                    <button onClick={() => setVrstvyViditelne(s => ({ ...s, [v.id]: !s[v.id] }))}
+                      style={{ color: vrstvyViditelne[v.id] !== false ? 'var(--amber)' : 'var(--text3)' }}>
+                      {vrstvyViditelne[v.id] !== false ? <Eye size={13} /> : <EyeOff size={13} />}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div>
               <InputField label={t('roof.roztecKrokvi')} value={roztecKrokvi} onChange={setRoztecKrokvi}
                 unit="mm" min={400} max={1500} step={50} hint="Doporučeno 700–1000 mm (ČSN 73 1702)" />
@@ -874,8 +909,8 @@ export default function Pudorys() {
           </div>
         </CalcCard>
 
-        {/* ── Pravý panel ── */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
+        {/* ── Střední panel — náhled ── */}
+        <div className="flex flex-col gap-4 min-w-0">
 
           {/* 3D / 2D náhled */}
           <CalcCard title={
@@ -962,6 +997,13 @@ export default function Pudorys() {
             </div>
           </div>
         </div>
+
+        {/* ── Pravý panel — živé výpočty ── */}
+        <RightPanelVypocty
+          plocha={getPlocha()} delka={delka} sirka={sirka} sklon={sklon}
+          presahStit={presahStit} vyskaZdi={vyskaZdi} krytina={krytina}
+          pocetUzlabi={vikyre.length * 2}
+          onSetKrytina={setKrytina} />
       </div>
 
       {/* ── Vikýře a střešní okna ── */}
